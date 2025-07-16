@@ -5,6 +5,7 @@ namespace HL7Processor.Core.Communication.Queue;
 public class InMemoryMessageQueue : IMessageQueue
 {
     private readonly ConcurrentDictionary<string, ConcurrentQueue<(string Id, byte[] Payload)>> _queues = new();
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<(string Id, byte[] Payload, string? Reason)>> _deadLetterQueues = new();
 
     public Task PublishAsync(string queueName, byte[] payload, CancellationToken cancellationToken = default)
     {
@@ -27,5 +28,21 @@ public class InMemoryMessageQueue : IMessageQueue
     {
         // No-op for in-memory queue
         return Task.CompletedTask;
+    }
+
+    public Task PublishToDeadLetterAsync(string queueName, byte[] payload, string reason, CancellationToken cancellationToken = default)
+    {
+        var dlq = _deadLetterQueues.GetOrAdd(queueName, _ => new());
+        dlq.Enqueue((Guid.NewGuid().ToString(), payload, reason));
+        return Task.CompletedTask;
+    }
+
+    public Task<byte[]?> ReceiveFromDeadLetterAsync(string queueName, CancellationToken cancellationToken = default)
+    {
+        if (_deadLetterQueues.TryGetValue(queueName, out var dlq) && dlq.TryDequeue(out var item))
+        {
+            return Task.FromResult<byte[]?>(item.Payload);
+        }
+        return Task.FromResult<byte[]?>(null);
     }
 } 

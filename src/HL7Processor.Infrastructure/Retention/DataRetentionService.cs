@@ -1,6 +1,7 @@
 using HL7Processor.Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace HL7Processor.Infrastructure.Retention;
 
@@ -40,8 +41,29 @@ public class DataRetentionService : IDataRetentionService
 
         if (_settings.ArchiveInsteadOfDelete)
         {
-            // For brevity: move to table HL7ArchivedMessages (not implemented). Log only.
-            _logger.LogInformation("{Count} messages older than cutoff would be archived (feature not implemented).", obsoleteMessages.Count);
+            _logger.LogInformation("Archiving {Count} HL7 messages older than {Cutoff}", obsoleteMessages.Count, cutoff);
+
+            foreach (var batch in obsoleteMessages.Chunk(100))
+            {
+                var msgs = await _db.Messages
+                    .Where(m => batch.Contains(m.Id))
+                    .ToListAsync(token);
+
+                // Map messages to archive entities
+                var archived = msgs.Select(m => new Entities.HL7ArchivedMessageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    OriginalMessageId = m.Id,
+                    MessageType = m.MessageType,
+                    Version = m.Version,
+                    OriginalTimestamp = m.Timestamp,
+                    ArchivedAt = DateTime.UtcNow
+                }).ToList();
+
+                await _db.ArchivedMessages.AddRangeAsync(archived, token);
+                _db.Messages.RemoveRange(msgs);
+                await _db.SaveChangesAsync(token);
+            }
         }
         else
         {

@@ -1,11 +1,13 @@
 using HL7Processor.Core.Communication.Queue;
 using HL7Processor.Core.Communication.MLLP;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace HL7Processor.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class MessageController : ControllerBase
 {
     private readonly IMessageQueue _queue;

@@ -11,6 +11,7 @@ public class HL7DbContext : DbContext
     public DbSet<HL7MessageEntity> Messages => Set<HL7MessageEntity>();
     public DbSet<HL7SegmentEntity> Segments => Set<HL7SegmentEntity>();
     public DbSet<HL7FieldEntity> Fields => Set<HL7FieldEntity>();
+    public DbSet<HL7ArchivedMessageEntity> ArchivedMessages => Set<HL7ArchivedMessageEntity>();
 
     private readonly AuditSaveChangesInterceptor _auditInterceptor = new();
 
