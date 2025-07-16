@@ -7,6 +7,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using HL7Processor.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using HL7Processor.Infrastructure.Retention;
+using HL7Processor.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +44,11 @@ builder.Services.AddDbContextPool<HL7DbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddScoped<HL7Processor.Infrastructure.Repositories.IMessageRepository, HL7Processor.Infrastructure.Repositories.MessageRepository>();
+
+var retentionSettings = builder.Configuration.GetSection(RetentionSettings.SectionName).Get<RetentionSettings>() ?? new RetentionSettings();
+builder.Services.AddSingleton(retentionSettings);
+builder.Services.AddScoped<IDataRetentionService, DataRetentionService>();
+builder.Services.AddHostedService<DataRetentionBackgroundService>();
 
 var app = builder.Build();
 
