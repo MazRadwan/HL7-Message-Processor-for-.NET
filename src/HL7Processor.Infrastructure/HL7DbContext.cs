@@ -1,5 +1,6 @@
 using HL7Processor.Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
+using HL7Processor.Infrastructure.Audit;
 
 namespace HL7Processor.Infrastructure;
 
@@ -10,6 +11,13 @@ public class HL7DbContext : DbContext
     public DbSet<HL7MessageEntity> Messages => Set<HL7MessageEntity>();
     public DbSet<HL7SegmentEntity> Segments => Set<HL7SegmentEntity>();
     public DbSet<HL7FieldEntity> Fields => Set<HL7FieldEntity>();
+
+    private readonly AuditSaveChangesInterceptor _auditInterceptor = new();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(_auditInterceptor);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
