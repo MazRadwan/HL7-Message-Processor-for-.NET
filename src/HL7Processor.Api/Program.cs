@@ -5,6 +5,8 @@ using HL7Processor.Api.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using HL7Processor.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +36,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
+
+var connectionString = builder.Configuration.GetConnectionString("Hl7Db") ?? "";
+builder.Services.AddDbContextPool<HL7DbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+builder.Services.AddScoped<HL7Processor.Infrastructure.Repositories.IMessageRepository, HL7Processor.Infrastructure.Repositories.MessageRepository>();
 
 var app = builder.Build();
 
