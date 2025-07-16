@@ -1,0 +1,262 @@
+# HL7 Project .gitignore
+
+# Project Documentation (excluded from version control)
+PRD-HL7
+HL7-Implementation-Stages.md
+.cursorrules
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.pyc
+*.pyo
+*.pyd
+.coverage
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+target/
+.mvn/
+mvnw
+mvnw.cmd
+.settings/
+.project
+.classpath
+
+# .NET
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+packages/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+*.cache
+*.log
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+vendor/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+*.accdb
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Log Files
+*.log
+logs/
+log/
+
+# Configuration Files (with sensitive data)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+config.json
+config.yaml
+config.yml
+secrets.json
+credentials.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# HL7 Specific
+*.hl7
+*.edi
+*.x12
+message_archive/
+hl7_logs/
+test_messages/
+sample_data/
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+tmp/
+.cache/
+.tmp/
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.docker/
+docker-compose.override.yml
+.dockerignore
+
+# Kubernetes
+*.kubeconfig
+kube-config
+
+# Certificates and Keys
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# Performance and Profiling
+*.prof
+*.pprof
+*.trace
+
+# Testing
+coverage/
+test-results/
+.nyc_output/
+junit.xml
+test-report.xml
+
+# Build Artifacts
+build/
+dist/
+out/
+release/
+.gradle/
+.next/
+.nuxt/
+.output/
+.vercel/
+
+# Cloud and Infrastructure
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+.aws/
+.azure/
+.gcp/
+
+# Monitoring and Observability
+*.hprof
+*.heap
+*.thread
+monitoring/
+metrics/
+traces/
+
+# Documentation Build
+docs/_build/
+site/
+_site/
+
+# Miscellaneous
+*.pid
+*.seed
+*.pid.lock
+.npm
+.eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.optional/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test
+.yarn-integrity
+.env.test
+.swc/
