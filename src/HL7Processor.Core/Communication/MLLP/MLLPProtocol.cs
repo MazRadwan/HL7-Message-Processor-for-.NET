@@ -314,11 +314,11 @@ public enum AcknowledgmentCode
 
 public class MLLPException : HL7ProcessingException
 {
-    public MLLPException(string message) : base(message, null, null, null)
+    public MLLPException(string message) : base(message, messageType: null)
     {
     }
 
-    public MLLPException(string message, Exception innerException) : base(message, innerException, null, null)
+    public MLLPException(string message, Exception innerException) : base(message, innerException, messageType: null)
     {
     }
 }

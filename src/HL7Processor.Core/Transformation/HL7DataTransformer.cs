@@ -3,6 +3,7 @@ using HL7Processor.Core.Extensions;
 using HL7Processor.Core.Exceptions;
 using HL7Processor.Core.Transformation.Converters;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HL7Processor.Core.Transformation;
 
@@ -23,6 +24,17 @@ public class HL7DataTransformer
         _transformationEngine = transformationEngine ?? throw new ArgumentNullException(nameof(transformationEngine));
         _jsonConverter = jsonConverter ?? throw new ArgumentNullException(nameof(jsonConverter));
         _xmlConverter = xmlConverter ?? throw new ArgumentNullException(nameof(xmlConverter));
+    }
+
+    // Convenience constructor for simple scenarios/tests
+    public HL7DataTransformer(ILogger<HL7DataTransformer> logger)
+        : this(logger,
+            new TransformationEngine(NullLogger<TransformationEngine>.Instance,
+                new RuleEngine(NullLogger<RuleEngine>.Instance),
+                new ObjectMapper(NullLogger<ObjectMapper>.Instance)),
+            new JsonConverter(NullLogger<JsonConverter>.Instance, new ObjectMapper(NullLogger<ObjectMapper>.Instance)),
+            new XmlConverter(NullLogger<XmlConverter>.Instance))
+    {
     }
 
     public Dictionary<string, object> TransformMessage(HL7Message message, FieldMappingConfiguration mappingConfig)
@@ -115,7 +127,7 @@ public class HL7DataTransformer
             return data;
         }
 
-        var ruleEngine = new RuleEngine(_logger.CreateLogger<RuleEngine>());
+        var ruleEngine = new RuleEngine(NullLogger<RuleEngine>.Instance);
         var result = ruleEngine.ApplyCustomRules(data, customRules);
 
         _logger.LogDebug("Field-level transformations completed: {RuleCount} rules applied", customRules.Count);
@@ -301,7 +313,7 @@ public class HL7DataTransformer
 
         _logger.LogDebug("Validating transformation for message {MessageId}", originalMessage.Id);
 
-        var validator = new DataIntegrityValidator(_logger.CreateLogger<DataIntegrityValidator>());
+        var validator = new DataIntegrityValidator(NullLogger<DataIntegrityValidator>.Instance);
         var result = validator.ValidateTransformedData(transformedData, originalMessage, mappingConfig);
 
         _logger.LogDebug("Transformation validation completed for message {MessageId}: Score={Score}", 

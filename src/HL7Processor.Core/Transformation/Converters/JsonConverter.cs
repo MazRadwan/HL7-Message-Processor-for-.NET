@@ -351,7 +351,7 @@ public class JsonConverter
         for (int i = 0; i < segment.Fields.Count; i++)
         {
             var fieldValue = segment.Fields[i];
-            fields.Add(fieldValue ?? string.Empty);
+            fields.Add(fieldValue?.Value ?? string.Empty);
         }
 
         return result;

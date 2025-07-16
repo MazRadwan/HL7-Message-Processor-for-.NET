@@ -4,6 +4,7 @@ using HL7Processor.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Globalization;
 
 namespace HL7Processor.Core.Transformation;
 

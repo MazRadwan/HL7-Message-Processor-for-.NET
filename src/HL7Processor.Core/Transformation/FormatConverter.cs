@@ -2,6 +2,7 @@ using HL7Processor.Core.Models;
 using HL7Processor.Core.Extensions;
 using HL7Processor.Core.Transformation.Converters;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace HL7Processor.Core.Transformation;
 
