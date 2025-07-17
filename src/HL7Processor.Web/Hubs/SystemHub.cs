@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace HL7Processor.Web.Hubs;
 
-[Authorize]
 public class SystemHub : Hub
 {
     private readonly ISystemHealthService _healthService;

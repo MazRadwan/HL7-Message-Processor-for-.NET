@@ -1,4 +1,4 @@
-@inherits LayoutView
+@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
@@ -26,8 +26,8 @@
                         Live Feed
                     </NavLink>
                     
-                    <AuthorizeView Roles="Admin">
-                        <Authorized>
+                    <AuthorizeView Roles="Admin" Context="adminCtx">
+                        <Authorized Context="adminCtx">
                             <div class="border-top border-secondary mt-2 pt-2">
                                 <NavLink class="list-group-item list-group-item-action bg-dark text-light border-0 py-3" href="/reports">
                                     <i class="bi bi-graph-up me-2"></i>
@@ -63,12 +63,12 @@
                     <SystemHealthIndicator />
                     
                     <!-- User Menu -->
-                    <AuthorizeView>
-                        <Authorized>
+                    <AuthorizeView Context="navCtx">
+                        <Authorized Context="navCtx">
                             <div class="dropdown ms-3">
                                 <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                     <i class="bi bi-person-circle me-1"></i>
-                                    @context.User.Identity?.Name
+                                    @navCtx.User.Identity?.Name
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="/profile">
@@ -117,7 +117,7 @@
             // Redirect to login
             Navigation.NavigateTo("/login", true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Even if logout service fails, clear local storage and redirect
             await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "authToken");

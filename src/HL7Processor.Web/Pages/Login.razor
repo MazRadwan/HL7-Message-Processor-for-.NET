@@ -1,5 +1,5 @@
 @page "/login"
-@layout _Layout
+@layout MainLayout
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject IAuthenticationService AuthService
@@ -117,7 +117,7 @@
                 errorMessage = result.ErrorMessage ?? "Login failed. Please try again.";
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorMessage = "An error occurred during login. Please try again.";
         }

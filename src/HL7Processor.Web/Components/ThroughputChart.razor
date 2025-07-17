@@ -29,7 +29,7 @@
         }
     }
 
-    private async Task<object> GetThroughputData()
+    private Task<object> GetThroughputData()
     {
         // Generate sample data for the last hour (12 5-minute intervals)
         var now = DateTime.Now;
@@ -47,7 +47,7 @@
             data.Add(random.Next(0, 50));
         }
 
-        return new
+        return Task.FromResult((object)new
         {
             labels = labels.ToArray(),
             datasets = new[]
@@ -61,7 +61,7 @@
                     tension = 0.1
                 }
             }
-        };
+        });
     }
 }
 

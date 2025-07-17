@@ -32,7 +32,13 @@ var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? builder.Configuration["JWT_SECRET_KEY"] 
     ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable or configuration value is required");
 
-jwtSettings = jwtSettings with { SecretKey = jwtSecret };
+jwtSettings = new JwtSettings 
+{ 
+    Issuer = jwtSettings.Issuer, 
+    Audience = jwtSettings.Audience, 
+    ExpirationMinutes = jwtSettings.ExpirationMinutes,
+    SecretKey = jwtSecret 
+};
 builder.Services.AddSingleton(jwtSettings);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -95,9 +101,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseAuthentication();

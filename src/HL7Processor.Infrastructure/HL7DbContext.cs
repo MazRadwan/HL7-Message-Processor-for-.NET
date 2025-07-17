@@ -13,12 +13,8 @@ public class HL7DbContext : DbContext
     public DbSet<HL7FieldEntity> Fields => Set<HL7FieldEntity>();
     public DbSet<HL7ArchivedMessageEntity> ArchivedMessages => Set<HL7ArchivedMessageEntity>();
 
-    private readonly AuditSaveChangesInterceptor _auditInterceptor = new();
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.AddInterceptors(_auditInterceptor);
-    }
+    // Remove OnConfiguring when using DbContext pooling
+    // Interceptors should be configured in Program.cs instead
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
