@@ -11,17 +11,17 @@ namespace HL7Processor.Tests.Integration;
 
 public class SeedDataIntegrationTests : IDisposable
 {
-    private readonly TestDbContext _context;
+    private readonly HL7Processor.Infrastructure.HL7DbContext _context;
     private readonly Mock<ILogger<SeedDataService>> _loggerMock;
     private readonly Mock<IHostEnvironment> _environmentMock;
 
     public SeedDataIntegrationTests()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
+        var options = new DbContextOptionsBuilder<HL7Processor.Infrastructure.HL7DbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
-        _context = new TestDbContext(options);
+        _context = new HL7Processor.Tests.TestDbContext(options);
         _loggerMock = new Mock<ILogger<SeedDataService>>();
         _environmentMock = new Mock<IHostEnvironment>();
     }
