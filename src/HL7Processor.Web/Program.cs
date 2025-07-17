@@ -23,6 +23,9 @@ var connectionString = Environment.GetEnvironmentVariable("HL7_CONNECTION_STRING
 builder.Services.AddDbContextPool<HL7DbContext>(options =>
     options.UseSqlServer(connectionString));
 
+builder.Services.AddDbContextFactory<HL7DbContext>(options =>
+    options.UseSqlServer(connectionString));
+
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
