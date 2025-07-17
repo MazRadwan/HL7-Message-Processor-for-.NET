@@ -1,0 +1,110 @@
+@inject IJSRuntime JSRuntime
+@inject IDashboardService DashboardService
+
+<div>
+    <canvas id="throughputChart" width="400" height="200"></canvas>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        try
+        {
+            // Get throughput data for the last hour
+            var throughputData = await GetThroughputData();
+            
+            await JSRuntime.InvokeVoidAsync("initializeThroughputChart", throughputData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing chart: {ex.Message}");
+        }
+    }
+
+    private async Task<object> GetThroughputData()
+    {
+        // Generate sample data for the last hour (12 5-minute intervals)
+        var now = DateTime.Now;
+        var labels = new List<string>();
+        var data = new List<int>();
+
+        for (int i = 11; i >= 0; i--)
+        {
+            var time = now.AddMinutes(-i * 5);
+            labels.Add(time.ToString("HH:mm"));
+            
+            // In a real implementation, this would query the database
+            // For now, generate sample data
+            var random = new Random(time.Minute);
+            data.Add(random.Next(0, 50));
+        }
+
+        return new
+        {
+            labels = labels.ToArray(),
+            datasets = new[]
+            {
+                new
+                {
+                    label = "Messages/5min",
+                    data = data.ToArray(),
+                    borderColor = "rgb(75, 192, 192)",
+                    backgroundColor = "rgba(75, 192, 192, 0.2)",
+                    tension = 0.1
+                }
+            }
+        };
+    }
+}
+
+<script>
+    window.initializeThroughputChart = (chartData) => {
+        const ctx = document.getElementById('throughputChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Messages'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    };
+</script>
