@@ -18,6 +18,9 @@
     {
         try
         {
+            // Wait for Chart.js to be available
+            await JSRuntime.InvokeVoidAsync("eval", "window.chartJsReady = typeof Chart !== 'undefined'");
+            
             // Get throughput data for the last hour
             var throughputData = await GetThroughputData();
             
@@ -67,6 +70,12 @@
 
 <script>
     window.initializeThroughputChart = (chartData) => {
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded');
+            return;
+        }
+        
         const ctx = document.getElementById('throughputChart').getContext('2d');
         
         new Chart(ctx, {
