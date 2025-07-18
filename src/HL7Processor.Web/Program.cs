@@ -95,6 +95,9 @@ builder.Services.AddScoped<IParserMetricsService, ParserMetricsService>();
 // Stage 6c: Transformation Services
 builder.Services.AddScoped<ITransformationService, TransformationService>();
 
+// Toast Notification Service
+builder.Services.AddScoped<IToastService, ToastService>();
+
 // HTTP Client for API calls
 builder.Services.AddHttpClient("HL7ProcessorApi", client =>
 {

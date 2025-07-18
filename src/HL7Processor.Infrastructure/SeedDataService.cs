@@ -31,17 +31,19 @@ public class SeedDataService
                 return;
             }
 
-            // Check if data already exists (idempotent)
-            if (await _context.Messages.AnyAsync())
+            // Check if messages data already exists
+            var hasMessages = await _context.Messages.AnyAsync();
+            if (hasMessages)
             {
-                _logger.LogInformation("Database already contains data. Skipping seed.");
-                return;
+                _logger.LogInformation("Database already contains message data. Skipping message seed.");
             }
 
-            _logger.LogInformation("Seeding database with sample data...");
+            if (!hasMessages)
+            {
+                _logger.LogInformation("Seeding database with sample data...");
 
-            var messages = new List<HL7MessageEntity>();
-            var now = DateTime.UtcNow;
+                var messages = new List<HL7MessageEntity>();
+                var now = DateTime.UtcNow;
 
             // Add recent messages for dashboard
             messages.AddRange(new[]
@@ -76,10 +78,11 @@ public class SeedDataService
                 });
             }
 
-            _context.Messages.AddRange(messages);
-            await _context.SaveChangesAsync();
+                _context.Messages.AddRange(messages);
+                await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Successfully seeded {Count} messages to the database", messages.Count);
+                _logger.LogInformation("Successfully seeded {Count} messages to the database", messages.Count);
+            }
 
             // Seed transformation data
             var transformationLogger = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<TransformationSeedDataService>();

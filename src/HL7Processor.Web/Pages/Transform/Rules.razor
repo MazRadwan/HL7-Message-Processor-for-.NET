@@ -2,6 +2,7 @@
 @using HL7Processor.Web.Services
 @using HL7Processor.Infrastructure.Entities
 @inject ITransformationService TransformationService
+@inject IToastService ToastService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Transformation Rules - HL7 Processor</PageTitle>
@@ -260,11 +261,11 @@
         try
         {
             await TransformationService.ExecuteTransformationAsync(rule.Id, sampleData);
-            await JSRuntime.InvokeVoidAsync("alert", $"Rule '{rule.Name}' executed successfully!");
+            ToastService.ShowSuccess($"Rule '{rule.Name}' executed successfully with sample data!", "Execution Complete");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Rule execution failed: {ex.Message}");
+            ToastService.ShowError($"Rule execution failed: {ex.Message}", "Execution Error");
         }
     }
 
@@ -275,10 +276,11 @@
             rule.IsActive = !rule.IsActive;
             await TransformationService.UpdateTransformationRuleAsync(rule);
             await LoadRules();
+            ToastService.ShowInfo($"Rule '{rule.Name}' has been {(rule.IsActive ? "activated" : "deactivated")}", "Rule Updated");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Failed to update rule: {ex.Message}");
+            ToastService.ShowError($"Failed to update rule: {ex.Message}", "Update Error");
         }
     }
 
@@ -291,10 +293,11 @@
             {
                 await TransformationService.DeleteTransformationRuleAsync(rule.Id);
                 await LoadRules();
+                ToastService.ShowSuccess($"Rule '{rule.Name}' has been deleted successfully", "Rule Deleted");
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Failed to delete rule: {ex.Message}");
+                ToastService.ShowError($"Failed to delete rule: {ex.Message}", "Delete Error");
             }
         }
     }

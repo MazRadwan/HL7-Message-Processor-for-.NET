@@ -2,6 +2,7 @@
 @using HL7Processor.Infrastructure.Entities
 @using System.Text.Json
 @inject ITransformationService TransformationService
+@inject IToastService ToastService
 @inject IJSRuntime JSRuntime
 
 <div class="card">
@@ -109,14 +110,6 @@
                 @ErrorMessage
             </div>
         }
-
-        @if (!string.IsNullOrEmpty(SuccessMessage))
-        {
-            <div class="alert alert-success" role="alert">
-                <i class="bi bi-check-circle me-2"></i>
-                @SuccessMessage
-            </div>
-        }
     </div>
 </div>
 
@@ -129,7 +122,6 @@
     private string RuleDefinition { get; set; } = "{}";
     private string PreviewResult { get; set; } = string.Empty;
     private string ErrorMessage { get; set; } = string.Empty;
-    private string SuccessMessage { get; set; } = string.Empty;
     private bool IsProcessing { get; set; }
 
     protected override void OnInitialized()
@@ -191,7 +183,6 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
 
         IsProcessing = true;
         ErrorMessage = string.Empty;
-        SuccessMessage = string.Empty;
         StateHasChanged();
 
         try
@@ -207,13 +198,16 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
             };
 
             await TransformationService.CreateTransformationRuleAsync(rule);
-            SuccessMessage = $"Rule '{RuleName}' saved successfully!";
+            ToastService.ShowSuccess($"Transformation rule '{RuleName}' has been saved successfully!", "Rule Saved");
             ErrorMessage = string.Empty;
+            
+            // Clear form after successful save
+            ClearForm();
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Save failed: {ex.Message}";
-            SuccessMessage = string.Empty;
+            ToastService.ShowError($"Failed to save rule: {ex.Message}", "Save Error");
         }
         finally
         {
@@ -232,7 +226,6 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
         RuleDefinition = "{}";
         PreviewResult = string.Empty;
         ErrorMessage = string.Empty;
-        SuccessMessage = string.Empty;
         StateHasChanged();
     }
 
@@ -241,7 +234,6 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
         InputData = e.Value?.ToString() ?? string.Empty;
         PreviewResult = string.Empty;
         ErrorMessage = string.Empty;
-        SuccessMessage = string.Empty;
     }
 
     private void OnRuleDefinitionChanged(ChangeEventArgs e)
@@ -249,6 +241,5 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
         RuleDefinition = e.Value?.ToString() ?? string.Empty;
         PreviewResult = string.Empty;
         ErrorMessage = string.Empty;
-        SuccessMessage = string.Empty;
     }
 }
