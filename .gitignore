@@ -260,3 +260,5 @@ _site/
 .yarn-integrity
 .env.test
 .swc/
+
+DEPLOYMENT.md
