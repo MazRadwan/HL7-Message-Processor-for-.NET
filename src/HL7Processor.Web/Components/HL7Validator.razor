@@ -53,49 +53,52 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
             </div>
         </form>
 
-        @if (ValidationResult != null)
+        @if (ValidationResult != null || (ValidationIssues?.Any() == true))
         {
             <div class="validation-results mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6>Validation Results</h6>
                     <span class="badge @GetResultBadgeClass() fs-6">
-                        @if (ValidationResult.IsValid)
+                        @if (ValidationResult?.IsValid == true)
                         {
                             <i class="bi bi-check-circle me-1"></i><text>Valid</text>
                         }
                         else
                         {
-                            <i class="bi bi-x-circle me-1"></i><text>Invalid</text>
+                            <i class="bi bi-x-circle me-1"></i><text>@(ValidationResult != null ? "Invalid" : "Error")</text>
                         }
                     </span>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h4 text-danger">@ValidationResult.ErrorCount</div>
-                            <small class="text-muted">Errors</small>
+                @if (ValidationResult != null)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-danger">@ValidationResult.ErrorCount</div>
+                                <small class="text-muted">Errors</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-warning">@ValidationResult.WarningCount</div>
+                                <small class="text-muted">Warnings</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-info">@ValidationResult.ProcessingTimeMs</div>
+                                <small class="text-muted">Milliseconds</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-primary">@ValidationResult.ValidationLevel</div>
+                                <small class="text-muted">Level</small>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h4 text-warning">@ValidationResult.WarningCount</div>
-                            <small class="text-muted">Warnings</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h4 text-info">@ValidationResult.ProcessingTimeMs</div>
-                            <small class="text-muted">Milliseconds</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h4 text-primary">@ValidationResult.ValidationLevel</div>
-                            <small class="text-muted">Level</small>
-                        </div>
-                    </div>
-                </div>
+                }
 
                 @if (ValidationIssues?.Any() == true)
                 {
@@ -155,10 +158,14 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
 
         IsValidating = true;
         StateHasChanged();
+        
+        // Debug log
+        Console.WriteLine($"Validation started for message: {MessageContent[..Math.Min(50, MessageContent.Length)]}...");
 
         try
         {
             ValidationResult = await ValidationService.ValidateMessageAsync(MessageContent, ValidationLevel);
+            Console.WriteLine($"Validation completed. Valid: {ValidationResult.IsValid}, Errors: {ValidationResult.ErrorCount}");
             
             // Parse validation details
             if (!string.IsNullOrEmpty(ValidationResult.ValidationDetails))
@@ -166,19 +173,23 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
                 try
                 {
                     ValidationIssues = JsonSerializer.Deserialize<List<ValidationIssue>>(ValidationResult.ValidationDetails);
+                    Console.WriteLine($"Parsed {ValidationIssues?.Count ?? 0} validation issues");
                 }
-                catch
+                catch (Exception parseEx)
                 {
+                    Console.WriteLine($"Failed to parse validation details: {parseEx.Message}");
                     ValidationIssues = new List<ValidationIssue>();
                 }
             }
             else
             {
                 ValidationIssues = new List<ValidationIssue>();
+                Console.WriteLine("No validation details to parse");
             }
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Validation failed with exception: {ex.Message}");
             // Handle validation error
             ValidationResult = null;
             ValidationIssues = new List<ValidationIssue>
@@ -217,7 +228,9 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
 
     private string GetResultBadgeClass()
     {
-        return ValidationResult?.IsValid == true ? "bg-success" : "bg-danger";
+        if (ValidationResult == null)
+            return "bg-danger";
+        return ValidationResult.IsValid ? "bg-success" : "bg-danger";
     }
 
     private static string GetIssueBadgeClass(string type)

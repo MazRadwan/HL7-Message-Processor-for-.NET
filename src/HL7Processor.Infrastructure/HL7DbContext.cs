@@ -39,6 +39,7 @@ public class HL7DbContext : DbContext
             .HasOne(v => v.Message)
             .WithMany()
             .HasForeignKey(v => v.MessageId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
     }
 } 

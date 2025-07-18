@@ -6,8 +6,8 @@ public class ValidationResult
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public Guid MessageId { get; set; }
-    public virtual HL7MessageEntity Message { get; set; } = null!;
+    public Guid? MessageId { get; set; }
+    public virtual HL7MessageEntity? Message { get; set; }
 
     [Required]
     [MaxLength(20)]
