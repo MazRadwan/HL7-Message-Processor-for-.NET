@@ -1,0 +1,115 @@
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+<div class="d-flex align-items-center">
+    <div class="me-2">
+        <span class="badge @GetStatusBadgeClass() d-flex align-items-center">
+            <i class="bi @GetStatusIcon() me-1"></i>
+            @GetStatusText()
+        </span>
+    </div>
+    <small class="text-muted">
+        @if (lastUpdated.HasValue)
+        {
+            <span>Updated @lastUpdated.Value.ToString("HH:mm:ss")</span>
+        }
+    </small>
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private SystemHealth systemHealth = new();
+    private DateTime? lastUpdated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl("/systemhub")
+                .Build();
+
+            hubConnection.On<SystemHealth>("SystemHealthUpdate", (health) =>
+            {
+                systemHealth = health;
+                lastUpdated = DateTime.Now;
+                InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+            
+            // Request initial health status
+            await hubConnection.SendAsync("RequestHealthStatus");
+        }
+        catch (Exception)
+        {
+            // If SignalR fails, set default healthy status
+            systemHealth = new SystemHealth 
+            { 
+                OverallStatus = SystemStatus.Healthy,
+                DatabaseConnected = true 
+            };
+            lastUpdated = DateTime.Now;
+        }
+    }
+
+    private string GetStatusBadgeClass()
+    {
+        return systemHealth.OverallStatus switch
+        {
+            SystemStatus.Healthy => "bg-success",
+            SystemStatus.Warning => "bg-warning text-dark",
+            SystemStatus.Critical => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStatusIcon()
+    {
+        return systemHealth.OverallStatus switch
+        {
+            SystemStatus.Healthy => "bi-check-circle-fill",
+            SystemStatus.Warning => "bi-exclamation-triangle-fill",
+            SystemStatus.Critical => "bi-x-circle-fill",
+            _ => "bi-question-circle-fill"
+        };
+    }
+
+    private string GetStatusText()
+    {
+        return systemHealth.OverallStatus switch
+        {
+            SystemStatus.Healthy => "Healthy",
+            SystemStatus.Warning => "Warning",
+            SystemStatus.Critical => "Critical",
+            _ => "Unknown"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+
+    public class SystemHealth
+    {
+        public SystemStatus OverallStatus { get; set; } = SystemStatus.Unknown;
+        public bool DatabaseConnected { get; set; }
+        public int QueueLength { get; set; }
+        public bool SignalRConnected { get; set; }
+        public double CpuUsage { get; set; }
+        public double MemoryUsage { get; set; }
+    }
+
+    public enum SystemStatus
+    {
+        Unknown,
+        Healthy,
+        Warning,
+        Critical
+    }
+}

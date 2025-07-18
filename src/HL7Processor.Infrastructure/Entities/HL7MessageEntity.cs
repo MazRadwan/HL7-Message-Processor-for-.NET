@@ -17,5 +17,11 @@ public class HL7MessageEntity
 
     public DateTime Timestamp { get; set; }
 
+    [MaxLength(50)]
+    public string? ProcessingStatus { get; set; }
+
+    [MaxLength(50)]
+    public string? PatientId { get; set; }
+
     public ICollection<HL7SegmentEntity> Segments { get; set; } = new List<HL7SegmentEntity>();
 } 

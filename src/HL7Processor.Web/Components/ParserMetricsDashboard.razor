@@ -1,0 +1,290 @@
+@using HL7Processor.Web.Services
+@inject IParserMetricsService ParserMetricsService
+@inject IJSRuntime JSRuntime
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-speedometer2 me-2"></i>
+            Parser Performance Metrics
+        </h5>
+    </div>
+    <div class="card-body">
+        @if (IsLoading)
+        {
+            <div class="text-center py-4">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading performance metrics...</p>
+            </div>
+        }
+        else if (PerformanceStats != null)
+        {
+            <!-- Performance Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h4>@PerformanceStats.TotalMessages</h4>
+                            <p class="mb-0">Messages Parsed</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h4>@PerformanceStats.AverageParseTimeMs.ToString("F1")ms</h4>
+                            <p class="mb-0">Avg Parse Time</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h4>@PerformanceStats.MedianParseTimeMs.ToString("F1")ms</h4>
+                            <p class="mb-0">Median Parse Time</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body text-center">
+                            <h4>@FormatMemory(PerformanceStats.AverageMemoryUsedBytes)</h4>
+                            <p class="mb-0">Avg Memory Used</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Range -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">Performance Range</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="text-success">
+                                        <i class="bi bi-speedometer me-2"></i>
+                                        <strong>@PerformanceStats.FastestParseTimeMs ms</strong>
+                                        <br><small>Fastest</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-danger">
+                                        <i class="bi bi-speedometer2 me-2"></i>
+                                        <strong>@PerformanceStats.SlowestParseTimeMs ms</strong>
+                                        <br><small>Slowest</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">Delimiter Detection</h6>
+                            @if (PerformanceStats.DelimiterDistribution.Any())
+                            {
+                                @foreach (var delimiter in PerformanceStats.DelimiterDistribution)
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span class="font-monospace">@delimiter.Key</span>
+                                        <span class="badge bg-primary">@delimiter.Value</span>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <small class="text-muted">No delimiter data available</small>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Type Performance -->
+            @if (PerformanceStats.MessageTypePerformance.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Performance by Message Type</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Message Type</th>
+                                        <th>Count</th>
+                                        <th>Avg Parse Time</th>
+                                        <th>Performance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var messageType in PerformanceStats.MessageTypePerformance.OrderBy(x => x.Value))
+                                    {
+                                        <tr>
+                                            <td class="font-monospace">@messageType.Key</td>
+                                            <td>@PerformanceStats.MessageTypeCount.GetValueOrDefault(messageType.Key, 0)</td>
+                                            <td>@messageType.Value.ToString("F1") ms</td>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar @GetPerformanceBarClass(messageType.Value)" 
+                                                         role="progressbar" 
+                                                         style="width: @GetPerformanceWidth(messageType.Value)%">
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Hourly Trends Chart -->
+            @if (PerformanceStats.HourlyTrends.Any())
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Performance Trends (Last 24 Hours)</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performanceTrendsChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <i class="bi bi-info-circle fs-1 text-muted"></i>
+                <p class="text-muted">No performance data available yet.</p>
+                <small class="text-muted">Parser metrics will appear here once messages are processed.</small>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool IsLoading { get; set; } = true;
+    private ParserPerformanceStats? PerformanceStats { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPerformanceData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && PerformanceStats?.HourlyTrends.Any() == true)
+        {
+            await RenderPerformanceChart();
+        }
+    }
+
+    private async Task LoadPerformanceData()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            PerformanceStats = await ParserMetricsService.GetPerformanceStatsAsync();
+        }
+        catch (Exception)
+        {
+            // Log error and show empty state
+            PerformanceStats = null;
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RenderPerformanceChart()
+    {
+        if (PerformanceStats?.HourlyTrends.Any() != true) return;
+
+        try
+        {
+            // Only render chart if we're in the browser (not during server-side rendering)
+            var isPrerendering = !JSRuntime.GetType().Name.Contains("RemoteJSRuntime");
+            if (isPrerendering) return;
+
+            var labels = PerformanceStats.HourlyTrends.Select(t => t.Hour.ToString("MM/dd HH:mm")).ToArray();
+            var parseTimeData = PerformanceStats.HourlyTrends.Select(t => t.AverageParseTimeMs).ToArray();
+            var messageCountData = PerformanceStats.HourlyTrends.Select(t => t.MessageCount).ToArray();
+
+            var chartData = new
+            {
+                labels,
+                datasets = new object[]
+                {
+                    new
+                    {
+                        label = "Avg Parse Time (ms)",
+                        data = parseTimeData,
+                        borderColor = "rgb(75, 192, 192)",
+                        backgroundColor = "rgba(75, 192, 192, 0.2)",
+                        yAxisID = "y",
+                        tension = 0.1
+                    },
+                    new
+                    {
+                        label = "Message Count",
+                        data = messageCountData,
+                        borderColor = "rgb(255, 99, 132)",
+                        backgroundColor = "rgba(255, 99, 132, 0.2)",
+                        yAxisID = "y1",
+                        tension = 0.1
+                    }
+                }
+            };
+
+            await JSRuntime.InvokeVoidAsync("initializePerformanceTrendsChart", chartData);
+        }
+        catch (Exception)
+        {
+            // Chart rendering failed, continue without chart
+        }
+    }
+
+    private static string GetPerformanceBarClass(double parseTime)
+    {
+        if (parseTime < 10) return "bg-success";
+        if (parseTime < 50) return "bg-warning";
+        return "bg-danger";
+    }
+
+    private double GetPerformanceWidth(double parseTime)
+    {
+        if (PerformanceStats?.SlowestParseTimeMs == 0) return 0;
+        return Math.Min(100, (parseTime / PerformanceStats!.SlowestParseTimeMs) * 100);
+    }
+
+    private static string FormatMemory(long bytes)
+    {
+        if (bytes == 0) return "N/A";
+        
+        string[] suffixes = { "B", "KB", "MB", "GB" };
+        int suffixIndex = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
+        {
+            size /= 1024;
+            suffixIndex++;
+        }
+        
+        return $"{size:F1} {suffixes[suffixIndex]}";
+    }
+}

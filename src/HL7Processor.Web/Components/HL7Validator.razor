@@ -1,0 +1,256 @@
+@using HL7Processor.Web.Services
+@using HL7Processor.Infrastructure.Entities
+@using System.Text.Json
+@using ValidationResult = HL7Processor.Infrastructure.Entities.ValidationResult
+@inject IValidationService ValidationService
+@inject IJSRuntime JSRuntime
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-check-square me-2"></i>
+            HL7 Message Validator
+        </h5>
+    </div>
+    <div class="card-body">
+        <form @onsubmit="ValidateMessage" @onsubmit:preventDefault="true">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Validation Level</label>
+                    <select class="form-select" @bind="ValidationLevel">
+                        <option value="Strict">Strict - Full compliance validation</option>
+                        <option value="Lenient">Lenient - Basic structure validation</option>
+                        <option value="Custom">Custom - Configurable rules</option>
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary" disabled="@IsValidating">
+                        @if (IsValidating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Validating...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-play-fill me-2"></i>
+                            <span>Validate Message</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">HL7 Message Content</label>
+                <textarea class="form-control font-monospace" 
+                          rows="12" 
+                          @bind="MessageContent" 
+                          @oninput="OnMessageContentChanged"
+                          placeholder="Paste your HL7 message here...
+Example:
+MSH|^~\&|SENDER|FACILITY|RECEIVER|DESTINATION|20230717120000||ADT^A01|12345|P|2.5
+EVN||20230717120000
+PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^12345"></textarea>
+            </div>
+        </form>
+
+        @if (ValidationResult != null || (ValidationIssues?.Any() == true))
+        {
+            <div class="validation-results mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Validation Results</h6>
+                    <span class="badge @GetResultBadgeClass() fs-6">
+                        @if (ValidationResult?.IsValid == true)
+                        {
+                            <i class="bi bi-check-circle me-1"></i><text>Valid</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-x-circle me-1"></i><text>@(ValidationResult != null ? "Invalid" : "Error")</text>
+                        }
+                    </span>
+                </div>
+
+                @if (ValidationResult != null)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-danger">@ValidationResult.ErrorCount</div>
+                                <small class="text-muted">Errors</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-warning">@ValidationResult.WarningCount</div>
+                                <small class="text-muted">Warnings</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-info">@ValidationResult.ProcessingTimeMs</div>
+                                <small class="text-muted">Milliseconds</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-primary">@ValidationResult.ValidationLevel</div>
+                                <small class="text-muted">Level</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (ValidationIssues?.Any() == true)
+                {
+                    <div class="validation-issues">
+                        <h6>Issues Found</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Severity</th>
+                                        <th>Location</th>
+                                        <th>Message</th>
+                                        <th>Rule</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var issue in ValidationIssues)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge @GetIssueBadgeClass(issue.Type)">
+                                                    @issue.Type
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetSeverityBadgeClass(issue.Severity)">
+                                                    @issue.Severity
+                                                </span>
+                                            </td>
+                                            <td class="font-monospace">@issue.Location</td>
+                                            <td>@issue.Message</td>
+                                            <td class="font-monospace">@issue.Rule</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string MessageContent { get; set; } = string.Empty;
+    private string ValidationLevel { get; set; } = "Strict";
+    private bool IsValidating { get; set; } = false;
+    private ValidationResult? ValidationResult { get; set; }
+    private List<ValidationIssue>? ValidationIssues { get; set; }
+
+    private async Task ValidateMessage()
+    {
+        if (string.IsNullOrWhiteSpace(MessageContent))
+            return;
+
+        IsValidating = true;
+        StateHasChanged();
+        
+        // Debug log
+        Console.WriteLine($"Validation started for message: {MessageContent[..Math.Min(50, MessageContent.Length)]}...");
+
+        try
+        {
+            ValidationResult = await ValidationService.ValidateMessageAsync(MessageContent, ValidationLevel);
+            Console.WriteLine($"Validation completed. Valid: {ValidationResult.IsValid}, Errors: {ValidationResult.ErrorCount}");
+            
+            // Parse validation details
+            if (!string.IsNullOrEmpty(ValidationResult.ValidationDetails))
+            {
+                try
+                {
+                    ValidationIssues = JsonSerializer.Deserialize<List<ValidationIssue>>(ValidationResult.ValidationDetails);
+                    Console.WriteLine($"Parsed {ValidationIssues?.Count ?? 0} validation issues");
+                }
+                catch (Exception parseEx)
+                {
+                    Console.WriteLine($"Failed to parse validation details: {parseEx.Message}");
+                    ValidationIssues = new List<ValidationIssue>();
+                }
+            }
+            else
+            {
+                ValidationIssues = new List<ValidationIssue>();
+                Console.WriteLine("No validation details to parse");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Validation failed with exception: {ex.Message}");
+            // Handle validation error
+            ValidationResult = null;
+            ValidationIssues = new List<ValidationIssue>
+            {
+                new ValidationIssue
+                {
+                    Type = "Error",
+                    Severity = "High",
+                    Location = "Validator",
+                    Message = $"Validation failed: {ex.Message}",
+                    Rule = "VALIDATION_ERROR"
+                }
+            };
+        }
+        finally
+        {
+            IsValidating = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task OnMessageContentChanged(ChangeEventArgs e)
+    {
+        MessageContent = e.Value?.ToString() ?? string.Empty;
+        
+        // Clear previous results when content changes
+        if (ValidationResult != null)
+        {
+            ValidationResult = null;
+            ValidationIssues = null;
+            StateHasChanged();
+        }
+        
+        return Task.CompletedTask;
+    }
+
+    private string GetResultBadgeClass()
+    {
+        if (ValidationResult == null)
+            return "bg-danger";
+        return ValidationResult.IsValid ? "bg-success" : "bg-danger";
+    }
+
+    private static string GetIssueBadgeClass(string type)
+    {
+        return type.ToLower() switch
+        {
+            "error" => "bg-danger",
+            "warning" => "bg-warning text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private static string GetSeverityBadgeClass(string severity)
+    {
+        return severity.ToLower() switch
+        {
+            "high" => "bg-danger",
+            "medium" => "bg-warning text-dark",
+            "low" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+}

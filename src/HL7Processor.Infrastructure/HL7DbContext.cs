@@ -12,13 +12,13 @@ public class HL7DbContext : DbContext
     public DbSet<HL7SegmentEntity> Segments => Set<HL7SegmentEntity>();
     public DbSet<HL7FieldEntity> Fields => Set<HL7FieldEntity>();
     public DbSet<HL7ArchivedMessageEntity> ArchivedMessages => Set<HL7ArchivedMessageEntity>();
+    
+    // Stage 6b: Parser & Validation tables
+    public DbSet<ValidationResult> ValidationResults => Set<ValidationResult>();
+    public DbSet<ParserMetric> ParserMetrics => Set<ParserMetric>();
 
-    private readonly AuditSaveChangesInterceptor _auditInterceptor = new();
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.AddInterceptors(_auditInterceptor);
-    }
+    // Remove OnConfiguring when using DbContext pooling
+    // Interceptors should be configured in Program.cs instead
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +32,14 @@ public class HL7DbContext : DbContext
             .HasMany(s => s.Fields)
             .WithOne(f => f.Segment)
             .HasForeignKey(f => f.SegmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Stage 6b: Validation Results relationship
+        modelBuilder.Entity<ValidationResult>()
+            .HasOne(v => v.Message)
+            .WithMany()
+            .HasForeignKey(v => v.MessageId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
     }
 } 
