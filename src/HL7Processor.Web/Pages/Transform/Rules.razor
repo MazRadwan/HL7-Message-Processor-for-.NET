@@ -1,0 +1,304 @@
+@page "/transform/rules"
+@using HL7Processor.Web.Services
+@using HL7Processor.Infrastructure.Entities
+@inject ITransformationService TransformationService
+@inject IToastService ToastService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Transformation Rules - HL7 Processor</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Transformation Rules</h2>
+                    <p class="text-muted">Manage and execute transformation rules</p>
+                </div>
+                <div>
+                    <a href="/transform/mapping-designer" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Create New Rule
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-gear me-2"></i>
+                            Active Rules
+                        </h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="RefreshRules">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (TransformationRules?.Any() == true)
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Rule Name</th>
+                                        <th>Format</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Modified</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rule in TransformationRules)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@rule.Name</strong>
+                                                @if (!string.IsNullOrEmpty(rule.Description))
+                                                {
+                                                    <br />
+                                                    <small class="text-muted">@rule.Description</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">@rule.SourceFormat</span>
+                                                <i class="bi bi-arrow-right mx-1"></i>
+                                                <span class="badge bg-secondary">@rule.TargetFormat</span>
+                                            </td>
+                                            <td>
+                                                @if (rule.IsActive)
+                                                {
+                                                    <span class="badge bg-success">Active</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning">Inactive</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <small>@rule.CreatedAt.ToString("yyyy-MM-dd")</small>
+                                                @if (!string.IsNullOrEmpty(rule.CreatedBy))
+                                                {
+                                                    <br />
+                                                    <small class="text-muted">by @rule.CreatedBy</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <small>@rule.ModifiedAt.ToString("yyyy-MM-dd")</small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => ViewRule(rule)">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-sm" @onclick="() => ExecuteRule(rule)" disabled="@(!rule.IsActive)">
+                                                        <i class="bi bi-play"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-warning btn-sm" @onclick="() => ToggleActive(rule)">
+                                                        <i class="bi bi-@(rule.IsActive ? "pause" : "play")"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => DeleteRule(rule)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-gear display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No transformation rules found.</p>
+                            <a href="/transform/mapping-designer" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Create Your First Rule
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (SelectedRule != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rule Details: @SelectedRule.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Rule Information</h6>
+                            <dl class="row">
+                                <dt class="col-sm-4">Name:</dt>
+                                <dd class="col-sm-8">@SelectedRule.Name</dd>
+                                <dt class="col-sm-4">Description:</dt>
+                                <dd class="col-sm-8">@(SelectedRule.Description ?? "No description")</dd>
+                                <dt class="col-sm-4">Format:</dt>
+                                <dd class="col-sm-8">@SelectedRule.SourceFormat → @SelectedRule.TargetFormat</dd>
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">
+                                    @if (SelectedRule.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning">Inactive</span>
+                                    }
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Metadata</h6>
+                            <dl class="row">
+                                <dt class="col-sm-4">Created:</dt>
+                                <dd class="col-sm-8">@SelectedRule.CreatedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+                                <dt class="col-sm-4">Created By:</dt>
+                                <dd class="col-sm-8">@(SelectedRule.CreatedBy ?? "Unknown")</dd>
+                                <dt class="col-sm-4">Modified:</dt>
+                                <dd class="col-sm-8">@SelectedRule.ModifiedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+                                <dt class="col-sm-4">Executions:</dt>
+                                <dd class="col-sm-8">@SelectedRule.TransformationHistories.Count</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h6>Rule Definition</h6>
+                        <pre class="bg-light p-3 rounded">@SelectedRule.RuleDefinition</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="() => ExecuteRule(SelectedRule)" disabled="@(!SelectedRule.IsActive)">
+                        <i class="bi bi-play me-1"></i>
+                        Execute Rule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TransformationRule>? TransformationRules { get; set; }
+    private TransformationRule? SelectedRule { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+    }
+
+    private async Task LoadRules()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            TransformationRules = await TransformationService.GetTransformationRulesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading transformation rules: {ex.Message}");
+            TransformationRules = new List<TransformationRule>();
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshRules()
+    {
+        await LoadRules();
+    }
+
+    private void ViewRule(TransformationRule rule)
+    {
+        SelectedRule = rule;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        SelectedRule = null;
+        StateHasChanged();
+    }
+
+    private async Task ExecuteRule(TransformationRule rule)
+    {
+        // For demo purposes, we'll use sample data
+        var sampleData = "MSH|^~\\&|SENDER|FACILITY|RECEIVER|DESTINATION|20230717120000||ADT^A01|12345|P|2.5\r\nPID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^12345";
+        
+        try
+        {
+            await TransformationService.ExecuteTransformationAsync(rule.Id, sampleData);
+            ToastService.ShowSuccess($"Rule '{rule.Name}' executed successfully with sample data!", "Execution Complete");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Rule execution failed: {ex.Message}", "Execution Error");
+        }
+    }
+
+    private async Task ToggleActive(TransformationRule rule)
+    {
+        try
+        {
+            rule.IsActive = !rule.IsActive;
+            await TransformationService.UpdateTransformationRuleAsync(rule);
+            await LoadRules();
+            ToastService.ShowInfo($"Rule '{rule.Name}' has been {(rule.IsActive ? "activated" : "deactivated")}", "Rule Updated");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Failed to update rule: {ex.Message}", "Update Error");
+        }
+    }
+
+    private async Task DeleteRule(TransformationRule rule)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete rule '{rule.Name}'?");
+        if (confirmed)
+        {
+            try
+            {
+                await TransformationService.DeleteTransformationRuleAsync(rule.Id);
+                await LoadRules();
+                ToastService.ShowSuccess($"Rule '{rule.Name}' has been deleted successfully", "Rule Deleted");
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Failed to delete rule: {ex.Message}", "Delete Error");
+            }
+        }
+    }
+}

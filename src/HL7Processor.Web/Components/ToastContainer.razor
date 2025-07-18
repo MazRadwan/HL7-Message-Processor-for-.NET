@@ -1,0 +1,45 @@
+@using HL7Processor.Web.Services
+@inject IToastService ToastService
+@implements IDisposable
+
+@foreach (var toast in _activeToasts)
+{
+    <ToastNotification Type="@toast.Type"
+                      Title="@toast.Title"
+                      Message="@toast.Message"
+                      IsVisible="true"
+                      AutoHideDelay="@toast.AutoHideDelay"
+                      OnHide="@(() => RemoveToast(toast))" />
+}
+
+@code {
+    private List<ToastMessage> _activeToasts = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private void ShowToast(ToastMessage toast)
+    {
+        _activeToasts.Add(toast);
+        InvokeAsync(StateHasChanged);
+        
+        // Auto-remove after delay + 500ms buffer
+        _ = Task.Delay(toast.AutoHideDelay + 500).ContinueWith(_ =>
+        {
+            RemoveToast(toast);
+        });
+    }
+
+    private void RemoveToast(ToastMessage toast)
+    {
+        _activeToasts.Remove(toast);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= ShowToast;
+    }
+}

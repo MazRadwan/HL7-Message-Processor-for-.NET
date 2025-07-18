@@ -1,0 +1,68 @@
+@if (IsVisible)
+{
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-@(Type.ToLower()) text-white">
+                <i class="bi bi-@GetIcon() me-2"></i>
+                <strong class="me-auto">@Title</strong>
+                <button type="button" class="btn-close btn-close-white" @onclick="Hide"></button>
+            </div>
+            <div class="toast-body">
+                @Message
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Type { get; set; } = "success"; // success, danger, warning, info
+    [Parameter] public string Title { get; set; } = "Notification";
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnHide { get; set; }
+    [Parameter] public int AutoHideDelay { get; set; } = 5000; // 5 seconds
+
+    private Timer? _autoHideTimer;
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible && AutoHideDelay > 0)
+        {
+            _autoHideTimer?.Dispose();
+            _autoHideTimer = new Timer(async _ => await AutoHide(), null, AutoHideDelay, Timeout.Infinite);
+        }
+    }
+
+    private string GetIcon()
+    {
+        return Type.ToLower() switch
+        {
+            "success" => "check-circle",
+            "danger" => "exclamation-triangle",
+            "warning" => "exclamation-triangle",
+            "info" => "info-circle",
+            _ => "info-circle"
+        };
+    }
+
+    private async Task Hide()
+    {
+        IsVisible = false;
+        _autoHideTimer?.Dispose();
+        await OnHide.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async Task AutoHide()
+    {
+        await InvokeAsync(async () =>
+        {
+            await Hide();
+        });
+    }
+
+    public void Dispose()
+    {
+        _autoHideTimer?.Dispose();
+    }
+}

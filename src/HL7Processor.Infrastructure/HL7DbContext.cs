@@ -16,6 +16,10 @@ public class HL7DbContext : DbContext
     // Stage 6b: Parser & Validation tables
     public DbSet<ValidationResult> ValidationResults => Set<ValidationResult>();
     public DbSet<ParserMetric> ParserMetrics => Set<ParserMetric>();
+    
+    // Stage 6c: Transformation tables
+    public DbSet<TransformationRule> TransformationRules => Set<TransformationRule>();
+    public DbSet<TransformationHistory> TransformationHistories => Set<TransformationHistory>();
 
     // Remove OnConfiguring when using DbContext pooling
     // Interceptors should be configured in Program.cs instead
@@ -41,5 +45,19 @@ public class HL7DbContext : DbContext
             .HasForeignKey(v => v.MessageId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Stage 6c: Transformation relationships
+        modelBuilder.Entity<TransformationHistory>()
+            .HasOne(th => th.Rule)
+            .WithMany(tr => tr.TransformationHistories)
+            .HasForeignKey(th => th.RuleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TransformationHistory>()
+            .HasOne(th => th.SourceMessage)
+            .WithMany()
+            .HasForeignKey(th => th.SourceMessageId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 } 

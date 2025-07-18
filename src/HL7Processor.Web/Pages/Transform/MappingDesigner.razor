@@ -1,0 +1,66 @@
+@page "/transform/mapping-designer"
+@using HL7Processor.Web.Components
+@using HL7Processor.Web.Services
+
+<PageTitle>Mapping Designer - HL7 Processor</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>Visual Field Mapping Designer</h2>
+                    <p class="text-muted">Create and test transformation rules between different message formats</p>
+                </div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="/transform/rules">Transform</a></li>
+                        <li class="breadcrumb-item active">Mapping Designer</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <TransformationDesigner />
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Transformation Guide
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Supported Formats</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success me-2"></i>HL7 v2.x Messages</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>JSON Documents</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>XML Documents</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>FHIR Resources</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Popular Transformations</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-arrow-right text-primary me-2"></i>HL7 ADT → JSON Patient</li>
+                                <li><i class="bi bi-arrow-right text-primary me-2"></i>HL7 ORM → XML Order</li>
+                                <li><i class="bi bi-arrow-right text-primary me-2"></i>HL7 ORU → FHIR Observation</li>
+                                <li><i class="bi bi-arrow-right text-primary me-2"></i>JSON → HL7 ADT</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

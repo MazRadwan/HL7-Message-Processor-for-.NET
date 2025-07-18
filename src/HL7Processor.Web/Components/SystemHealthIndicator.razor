@@ -3,24 +3,21 @@
 @inject IJSRuntime JSRuntime
 
 <div class="d-flex align-items-center">
-    <div class="me-2">
-        <span class="badge @GetStatusBadgeClass() d-flex align-items-center">
-            <i class="bi @GetStatusIcon() me-1"></i>
-            @GetStatusText()
-        </span>
-    </div>
-    <small class="text-muted">
-        @if (lastUpdated.HasValue)
-        {
-            <span>Updated @lastUpdated.Value.ToString("HH:mm:ss")</span>
-        }
-    </small>
+    <span class="badge @GetStatusBadgeClass() d-flex align-items-center" 
+          title="@GetTooltipText()"
+          data-bs-toggle="tooltip" 
+          data-bs-placement="bottom"
+          @ref="tooltipElement">
+        <i class="bi @GetStatusIcon() me-1"></i>
+        @GetStatusText()
+    </span>
 </div>
 
 @code {
     private HubConnection? hubConnection;
     private SystemHealth systemHealth = new();
     private DateTime? lastUpdated;
+    private ElementReference tooltipElement;
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,6 +48,37 @@
                 DatabaseConnected = true 
             };
             lastUpdated = DateTime.Now;
+        }
+        
+        // Initialize tooltip after component renders
+        await Task.Delay(100);
+        await InitializeTooltip();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeTooltip();
+        }
+    }
+
+    private async Task InitializeTooltip()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                if (window.bootstrap && window.bootstrap.Tooltip) {
+                    const element = document.querySelector('[data-bs-toggle=""tooltip""]');
+                    if (element && !element._tooltip) {
+                        element._tooltip = new bootstrap.Tooltip(element);
+                    }
+                }
+            ");
+        }
+        catch (Exception)
+        {
+            // Tooltip initialization failed, fallback to title attribute
         }
     }
 
@@ -85,6 +113,13 @@
             SystemStatus.Critical => "Critical",
             _ => "Unknown"
         };
+    }
+
+    private string GetTooltipText()
+    {
+        var status = GetStatusText();
+        var updateTime = lastUpdated?.ToString("HH:mm:ss") ?? "Never";
+        return $"System Status: {status}\nLast Updated: {updateTime}\nDatabase: {(systemHealth.DatabaseConnected ? "Connected" : "Disconnected")}";
     }
 
     public async ValueTask DisposeAsync()

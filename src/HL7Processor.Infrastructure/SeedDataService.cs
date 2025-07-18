@@ -10,12 +10,14 @@ public class SeedDataService
     private readonly HL7DbContext _context;
     private readonly ILogger<SeedDataService> _logger;
     private readonly IHostEnvironment _environment;
+    private readonly IDbContextFactory<HL7DbContext> _contextFactory;
 
-    public SeedDataService(HL7DbContext context, ILogger<SeedDataService> logger, IHostEnvironment environment)
+    public SeedDataService(HL7DbContext context, ILogger<SeedDataService> logger, IHostEnvironment environment, IDbContextFactory<HL7DbContext> contextFactory)
     {
         _context = context;
         _logger = logger;
         _environment = environment;
+        _contextFactory = contextFactory;
     }
 
     public async Task SeedDataAsync()
@@ -29,17 +31,19 @@ public class SeedDataService
                 return;
             }
 
-            // Check if data already exists (idempotent)
-            if (await _context.Messages.AnyAsync())
+            // Check if messages data already exists
+            var hasMessages = await _context.Messages.AnyAsync();
+            if (hasMessages)
             {
-                _logger.LogInformation("Database already contains data. Skipping seed.");
-                return;
+                _logger.LogInformation("Database already contains message data. Skipping message seed.");
             }
 
-            _logger.LogInformation("Seeding database with sample data...");
+            if (!hasMessages)
+            {
+                _logger.LogInformation("Seeding database with sample data...");
 
-            var messages = new List<HL7MessageEntity>();
-            var now = DateTime.UtcNow;
+                var messages = new List<HL7MessageEntity>();
+                var now = DateTime.UtcNow;
 
             // Add recent messages for dashboard
             messages.AddRange(new[]
@@ -74,10 +78,16 @@ public class SeedDataService
                 });
             }
 
-            _context.Messages.AddRange(messages);
-            await _context.SaveChangesAsync();
+                _context.Messages.AddRange(messages);
+                await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Successfully seeded {Count} messages to the database", messages.Count);
+                _logger.LogInformation("Successfully seeded {Count} messages to the database", messages.Count);
+            }
+
+            // Seed transformation data
+            var transformationLogger = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<TransformationSeedDataService>();
+            var transformationSeedService = new TransformationSeedDataService(_contextFactory, transformationLogger);
+            await transformationSeedService.SeedTransformationDataAsync();
 
             // Log statistics
             var stats = await _context.Messages

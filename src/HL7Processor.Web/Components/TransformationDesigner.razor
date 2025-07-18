@@ -1,0 +1,245 @@
+@using HL7Processor.Web.Services
+@using HL7Processor.Infrastructure.Entities
+@using System.Text.Json
+@inject ITransformationService TransformationService
+@inject IToastService ToastService
+@inject IJSRuntime JSRuntime
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-diagram-3 me-2"></i>
+            Visual Field Mapping Designer
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Rule Name</label>
+                    <input type="text" class="form-control" @bind="RuleName" placeholder="Enter rule name" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="2" @bind="Description" placeholder="Optional description"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">Source Format</label>
+                        <select class="form-select" @bind="SourceFormat">
+                            <option value="HL7">HL7</option>
+                            <option value="JSON">JSON</option>
+                            <option value="XML">XML</option>
+                            <option value="FHIR">FHIR</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Target Format</label>
+                        <select class="form-select" @bind="TargetFormat">
+                            <option value="JSON">JSON</option>
+                            <option value="HL7">HL7</option>
+                            <option value="XML">XML</option>
+                            <option value="FHIR">FHIR</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Input Data</label>
+                    <textarea class="form-control font-monospace" 
+                              rows="8" 
+                              @bind="InputData" 
+                              @oninput="OnInputDataChanged"
+                              placeholder="Paste your sample data here for preview..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Rule Definition (JSON DSL)</label>
+            <textarea class="form-control font-monospace" 
+                      rows="6" 
+                      @bind="RuleDefinition" 
+                      @oninput="OnRuleDefinitionChanged"
+                      placeholder="Enter transformation rule definition..."></textarea>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+            <button type="button" class="btn btn-outline-primary" @onclick="PreviewTransformation" disabled="@IsProcessing">
+                <i class="bi bi-eye me-1"></i>
+                Preview
+            </button>
+            <button type="button" class="btn btn-success" @onclick="SaveRule" disabled="@IsProcessing">
+                <i class="bi bi-save me-1"></i>
+                Save Rule
+            </button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="ClearForm">
+                <i class="bi bi-x-circle me-1"></i>
+                Clear
+            </button>
+        </div>
+
+        @if (IsProcessing)
+        {
+            <div class="d-flex align-items-center mb-3">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span>Processing...</span>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(PreviewResult))
+        {
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-eye me-2"></i>
+                        Preview Result
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre class="mb-0 font-monospace small">@PreviewResult</pre>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                @ErrorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string RuleName { get; set; } = string.Empty;
+    private string Description { get; set; } = string.Empty;
+    private string SourceFormat { get; set; } = "HL7";
+    private string TargetFormat { get; set; } = "JSON";
+    private string InputData { get; set; } = string.Empty;
+    private string RuleDefinition { get; set; } = "{}";
+    private string PreviewResult { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsProcessing { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Initialize with sample data
+        InputData = @"MSH|^~\&|SENDER|FACILITY|RECEIVER|DESTINATION|20230717120000||ADT^A01|12345|P|2.5
+EVN||20230717120000
+PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^12345";
+
+        RuleDefinition = JsonSerializer.Serialize(new
+        {
+            mappings = new[]
+            {
+                new { source = "MSH.3", target = "sendingApplication" },
+                new { source = "MSH.4", target = "sendingFacility" },
+                new { source = "PID.5", target = "patientName" },
+                new { source = "PID.7", target = "birthDate" }
+            }
+        }, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private async Task PreviewTransformation()
+    {
+        if (string.IsNullOrWhiteSpace(InputData) || string.IsNullOrWhiteSpace(RuleDefinition))
+        {
+            ErrorMessage = "Please provide both input data and rule definition.";
+            return;
+        }
+
+        IsProcessing = true;
+        ErrorMessage = string.Empty;
+        PreviewResult = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            PreviewResult = await TransformationService.PreviewTransformationAsync(RuleDefinition, InputData);
+            ErrorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Preview failed: {ex.Message}";
+            PreviewResult = string.Empty;
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveRule()
+    {
+        if (string.IsNullOrWhiteSpace(RuleName) || string.IsNullOrWhiteSpace(RuleDefinition))
+        {
+            ErrorMessage = "Please provide both rule name and rule definition.";
+            return;
+        }
+
+        IsProcessing = true;
+        ErrorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var rule = new TransformationRule
+            {
+                Name = RuleName,
+                Description = Description,
+                SourceFormat = SourceFormat,
+                TargetFormat = TargetFormat,
+                RuleDefinition = RuleDefinition,
+                CreatedBy = "System" // In a real app, this would be the current user
+            };
+
+            await TransformationService.CreateTransformationRuleAsync(rule);
+            ToastService.ShowSuccess($"Transformation rule '{RuleName}' has been saved successfully!", "Rule Saved");
+            ErrorMessage = string.Empty;
+            
+            // Clear form after successful save
+            ClearForm();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Save failed: {ex.Message}";
+            ToastService.ShowError($"Failed to save rule: {ex.Message}", "Save Error");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearForm()
+    {
+        RuleName = string.Empty;
+        Description = string.Empty;
+        SourceFormat = "HL7";
+        TargetFormat = "JSON";
+        InputData = string.Empty;
+        RuleDefinition = "{}";
+        PreviewResult = string.Empty;
+        ErrorMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private void OnInputDataChanged(ChangeEventArgs e)
+    {
+        InputData = e.Value?.ToString() ?? string.Empty;
+        PreviewResult = string.Empty;
+        ErrorMessage = string.Empty;
+    }
+
+    private void OnRuleDefinitionChanged(ChangeEventArgs e)
+    {
+        RuleDefinition = e.Value?.ToString() ?? string.Empty;
+        PreviewResult = string.Empty;
+        ErrorMessage = string.Empty;
+    }
+}

@@ -1,0 +1,107 @@
+@using HL7Processor.Web.Services
+@using HL7Processor.Infrastructure.Entities
+@inject ITransformationService TransformationService
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-clock-history me-2"></i>
+            Transformation History
+        </h5>
+    </div>
+    <div class="card-body">
+        @if (IsLoading)
+        {
+            <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (TransformationHistory?.Any() == true)
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Rule Name</th>
+                            <th>Format</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in TransformationHistory)
+                        {
+                            <tr>
+                                <td>
+                                    <small class="text-muted">@item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</small>
+                                </td>
+                                <td>
+                                    <strong>@item.Rule.Name</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">@item.Rule.SourceFormat</span>
+                                    <i class="bi bi-arrow-right mx-1"></i>
+                                    <span class="badge bg-secondary">@item.Rule.TargetFormat</span>
+                                </td>
+                                <td>
+                                    @if (item.Success)
+                                    {
+                                        <span class="badge bg-success">Success</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Failed</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">@item.TransformationTimeMs ms</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <i class="bi bi-inbox display-4 text-muted"></i>
+                <p class="text-muted mt-2">No transformation history found.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<TransformationHistory>? TransformationHistory { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            TransformationHistory = await TransformationService.GetTransformationHistoryAsync(50);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading transformation history: {ex.Message}");
+            TransformationHistory = new List<TransformationHistory>();
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+}
