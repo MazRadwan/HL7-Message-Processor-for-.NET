@@ -92,6 +92,9 @@ builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
 builder.Services.AddScoped<IValidationService, ValidationService>();
 builder.Services.AddScoped<IParserMetricsService, ParserMetricsService>();
 
+// Stage 6c: Transformation Services
+builder.Services.AddScoped<ITransformationService, TransformationService>();
+
 // HTTP Client for API calls
 builder.Services.AddHttpClient("HL7ProcessorApi", client =>
 {
@@ -132,7 +135,8 @@ using (var scope = app.Services.CreateScope())
     // Seed with sample data (development only)
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<SeedDataService>>();
     var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
-    var seedService = new SeedDataService(context, logger, environment);
+    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<HL7DbContext>>();
+    var seedService = new SeedDataService(context, logger, environment, contextFactory);
     await seedService.SeedDataAsync();
 }
 
