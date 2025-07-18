@@ -17,6 +17,7 @@ Built for hospitals, laboratories and integrators who need modern, test-driven i
 | **Transport** | • Async MLLP **client & server** with ACK/NACK handling<br/>• Connection pooling, idle-timeout management |
 | **Storage** | • EF Core persistence (SQL Server by default)<br/>• Repository pattern + LINQ querying<br/>• Data-retention service & archiving hook |
 | **Monitoring API** | • ASP.NET Core Web API (`/api`) for message submission & querying<br/>• SignalR hub for real-time UI updates |
+| **Web Dashboard** | • Blazor Server UI with real-time metrics<br/>• HL7 message validator with parser performance tracking<br/>• Visual transformation designer & rule management<br/>• Toast notifications & professional UX |
 | **Security** | • JWT-based auth (ASP.NET Identity-ready)<br/>• Audit logging via EF Core interceptors |
 | **Dev Experience** | • Clean, SOLID core library<br/>• 200+ unit/integration tests (xUnit / FluentAssertions)<br/>• One-command Docker compose for DB/demo server |
 
@@ -28,6 +29,7 @@ src/
  ├─ HL7Processor.Core/          # Domain + business logic
  ├─ HL7Processor.Infrastructure/ # EF Core, repositories, audit
  ├─ HL7Processor.Api/           # ASP.NET Core REST & SignalR
+ ├─ HL7Processor.Web/           # Blazor Server dashboard & UI
  └─ HL7Processor.Console/       # CLI & diagnostics
 
 tests/
@@ -62,6 +64,15 @@ dotnet run
 # 👉 Swagger: https://localhost:5001/swagger
 ```
 
+### Run Web Dashboard (development)
+```bash
+cd src/HL7Processor.Web
+
+dotnet run --urls="http://localhost:8080"
+
+# 👉 Web UI: http://localhost:8080 (Blazor dashboard)
+```
+
 ### Run Tests
 ```bash
 cd tests
@@ -86,6 +97,12 @@ docker compose up -d  # spins up SQL Server + API
 | `appsettings.Production.json`  | Production settings (no secrets) |
 | **Environment Variables** | `ConnectionStrings__Hl7Db`, `Jwt__SecretKey`, … |
 
+### Required Environment Variables
+```bash
+JWT_SECRET_KEY="your-32-char-secret-key"
+HL7_CONNECTION_STRING="Server=localhost,1433;Database=HL7ProcessorDb;User Id=sa;Password=YourPassword123!;Encrypt=true;TrustServerCertificate=true"
+```
+
 > Use **dotnet user-secrets** in development to avoid committing secrets.
 
 ---
@@ -100,7 +117,7 @@ docker compose up -d  # spins up SQL Server + API
 ## 📈 Roadmap
 - [ ] FHIR R4 resource enrichment
 - [ ] RabbitMQ / Azure Service Bus adapters
-- [ ] Dashboard UI (Blazor)
+- [ ] Advanced transformation rule templates
 - [ ] Kubernetes Helm chart
 
 ---
