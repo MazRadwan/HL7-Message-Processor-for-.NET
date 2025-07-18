@@ -88,6 +88,10 @@ builder.Services.AddScoped<ISystemHealthService, SystemHealthService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
 
+// Stage 6b: Parser & Validation Services
+builder.Services.AddScoped<IValidationService, ValidationService>();
+builder.Services.AddScoped<IParserMetricsService, ParserMetricsService>();
+
 // HTTP Client for API calls
 builder.Services.AddHttpClient("HL7ProcessorApi", client =>
 {
