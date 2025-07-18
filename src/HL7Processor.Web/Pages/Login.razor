@@ -1,8 +1,12 @@
 @page "/login"
 @layout MainLayout
+@using System.ComponentModel.DataAnnotations
+@using HL7Processor.Web.Services
+@using Microsoft.AspNetCore.Hosting
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject IAuthenticationService AuthService
+@inject IWebHostEnvironment Environment
 
 <div class="d-flex justify-content-center align-items-center" style="min-height: 100vh; background-color: #f8f9fa;">
     <div class="card shadow" style="width: 400px;">
@@ -71,6 +75,20 @@
                     Please enter your credentials to access the HL7 Processor
                 </small>
             </div>
+
+            <!-- Development Mode Bypass -->
+            @if (Environment.IsDevelopment())
+            {
+                <div class="text-center mt-3">
+                    <hr class="my-3">
+                    <button type="button" class="btn btn-warning btn-sm" @onclick="DevModeLogin">
+                        <i class="bi bi-gear me-2"></i>
+                        Dev Mode Login
+                    </button>
+                    <br>
+                    <small class="text-muted">Development environment only</small>
+                </div>
+            }
         </div>
     </div>
 </div>
@@ -82,11 +100,18 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if already authenticated
-        var token = await JSRuntime.InvokeAsync<string>("localStorageHelper.get", "authToken");
-        if (!string.IsNullOrEmpty(token))
+        // Check if already authenticated (only in browser context)
+        try
         {
-            Navigation.NavigateTo("/", true);
+            var token = await JSRuntime.InvokeAsync<string>("localStorageHelper.get", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/", true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Handle case where JS interop isn't available during prerendering
         }
     }
 
@@ -102,12 +127,19 @@
             
             if (result.Success && !string.IsNullOrEmpty(result.Token))
             {
-                // Store token and user info
-                await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "authToken", result.Token);
-                if (result.User != null)
+                // Store token and user info (only if in browser context)
+                try
                 {
-                    var userJson = System.Text.Json.JsonSerializer.Serialize(result.User);
-                    await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "userInfo", userJson);
+                    await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "authToken", result.Token);
+                    if (result.User != null)
+                    {
+                        var userJson = System.Text.Json.JsonSerializer.Serialize(result.User);
+                        await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "userInfo", userJson);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle case where JS interop isn't available during prerendering
                 }
                 
                 Navigation.NavigateTo("/", true);
@@ -124,6 +156,41 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DevModeLogin()
+    {
+        try
+        {
+            // Create a mock successful login result for development
+            var devToken = "dev-token-" + Guid.NewGuid().ToString("N")[..16];
+            
+            // Store dev token in localStorage
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "authToken", devToken);
+                
+                // Create mock user info
+                var mockUser = new { 
+                    Name = "Dev User", 
+                    Role = "Admin", 
+                    Username = "dev-user" 
+                };
+                var userJson = System.Text.Json.JsonSerializer.Serialize(mockUser);
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "userInfo", userJson);
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle case where JS interop isn't available during prerendering
+            }
+            
+            Navigation.NavigateTo("/", true);
+        }
+        catch (Exception)
+        {
+            errorMessage = "Dev mode login failed. Please try again.";
             StateHasChanged();
         }
     }

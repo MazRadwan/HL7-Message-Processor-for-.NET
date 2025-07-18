@@ -19,6 +19,10 @@
     {
         try
         {
+            // Only render chart if we're in the browser (not during server-side rendering)
+            var isPrerendering = !JSRuntime.GetType().Name.Contains("RemoteJSRuntime");
+            if (isPrerendering) return;
+
             var points = await DashboardService.GetThroughputLastHourAsync();
 
             var labels = points.Select(p => p.Timestamp.ToString("HH:mm")).ToArray();

@@ -124,9 +124,16 @@
             // Call logout service
             await AuthService.LogoutAsync();
             
-            // Clear local storage
-            await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "authToken");
-            await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "userInfo");
+            // Clear local storage (only if in browser context)
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "authToken");
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "userInfo");
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle case where JS interop isn't available during prerendering
+            }
             
             // Redirect to login
             Navigation.NavigateTo("/login", true);
@@ -134,8 +141,15 @@
         catch (Exception)
         {
             // Even if logout service fails, clear local storage and redirect
-            await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "authToken");
-            await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "userInfo");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "authToken");
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.remove", "userInfo");
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle case where JS interop isn't available during prerendering
+            }
             Navigation.NavigateTo("/login", true);
         }
     }

@@ -216,6 +216,10 @@
 
         try
         {
+            // Only render chart if we're in the browser (not during server-side rendering)
+            var isPrerendering = !JSRuntime.GetType().Name.Contains("RemoteJSRuntime");
+            if (isPrerendering) return;
+
             var labels = PerformanceStats.HourlyTrends.Select(t => t.Hour.ToString("MM/dd HH:mm")).ToArray();
             var parseTimeData = PerformanceStats.HourlyTrends.Select(t => t.AverageParseTimeMs).ToArray();
             var messageCountData = PerformanceStats.HourlyTrends.Select(t => t.MessageCount).ToArray();
