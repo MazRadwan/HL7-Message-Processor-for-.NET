@@ -10,11 +10,13 @@ public class ValidationService : IValidationService
 {
     private readonly IDbContextFactory<HL7DbContext> _contextFactory;
     private readonly ILogger<ValidationService> _logger;
+    private readonly IParserMetricsService _parserMetricsService;
 
-    public ValidationService(IDbContextFactory<HL7DbContext> contextFactory, ILogger<ValidationService> logger)
+    public ValidationService(IDbContextFactory<HL7DbContext> contextFactory, ILogger<ValidationService> logger, IParserMetricsService parserMetricsService)
     {
         _contextFactory = contextFactory;
         _logger = logger;
+        _parserMetricsService = parserMetricsService;
     }
 
     public async Task<ValidationResult> ValidateMessageAsync(string hl7Content, string validationLevel = "Strict")
@@ -26,6 +28,9 @@ public class ValidationService : IValidationService
         {
             var issues = await PerformValidation(hl7Content, validationLevel);
             stopwatch.Stop();
+            
+            // Extract parsing metrics from HL7 content
+            var parsingMetrics = ExtractParsingMetrics(hl7Content);
 
             var result = new ValidationResult
             {
@@ -39,6 +44,16 @@ public class ValidationService : IValidationService
 
             context.ValidationResults.Add(result);
             await context.SaveChangesAsync();
+            
+            // Record parser metrics
+            await _parserMetricsService.RecordParsingMetricAsync(
+                parsingMetrics.MessageType,
+                parsingMetrics.Delimiter,
+                parsingMetrics.SegmentCount,
+                parsingMetrics.FieldCount,
+                parsingMetrics.ComponentCount,
+                result.ProcessingTimeMs
+            );
 
             _logger.LogInformation("Validated HL7 message: {IsValid}, {ErrorCount} errors, {WarningCount} warnings in {ProcessingTime}ms", 
                 result.IsValid, result.ErrorCount, result.WarningCount, result.ProcessingTimeMs);
@@ -241,4 +256,65 @@ public class ValidationService : IValidationService
 
         return issues;
     }
+
+    private ParsingMetrics ExtractParsingMetrics(string hl7Content)
+    {
+        var lines = hl7Content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        
+        string messageType = "Unknown";
+        string delimiter = "|";
+        int segmentCount = lines.Length;
+        int fieldCount = 0;
+        int componentCount = 0;
+
+        // Extract message type from MSH segment
+        if (lines.Length > 0 && lines[0].StartsWith("MSH"))
+        {
+            var mshFields = lines[0].Split('|');
+            if (mshFields.Length > 8)
+            {
+                messageType = mshFields[8]; // MSH.9 - Message Type
+            }
+        }
+
+        // Count fields and components across all segments
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            
+            var fields = line.Split('|');
+            fieldCount += fields.Length;
+            
+            // Count components (separated by ^)
+            foreach (var field in fields)
+            {
+                if (field.Contains('^'))
+                {
+                    componentCount += field.Split('^').Length;
+                }
+                else
+                {
+                    componentCount++; // Single component
+                }
+            }
+        }
+
+        return new ParsingMetrics
+        {
+            MessageType = messageType,
+            Delimiter = delimiter,
+            SegmentCount = segmentCount,
+            FieldCount = fieldCount,
+            ComponentCount = componentCount
+        };
+    }
+}
+
+public class ParsingMetrics
+{
+    public string MessageType { get; set; } = string.Empty;
+    public string Delimiter { get; set; } = string.Empty;
+    public int SegmentCount { get; set; }
+    public int FieldCount { get; set; }
+    public int ComponentCount { get; set; }
 }
