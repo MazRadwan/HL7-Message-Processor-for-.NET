@@ -262,3 +262,15 @@ _site/
 .swc/
 
 DEPLOYMENT.md
+
+# Deployment artifacts and logs
+publish*/
+deploy-*/
+deployments/
+LogFiles/
+*.zip
+query-db.cs
+
+# Deployment scripts (move to scripts/deploy/ instead)
+deploy-to-azure.*
+run-migrations.sh

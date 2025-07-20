@@ -148,7 +148,7 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
     private string MessageContent { get; set; } = string.Empty;
     private string ValidationLevel { get; set; } = "Strict";
     private bool IsValidating { get; set; } = false;
-    private ValidationResult? ValidationResult { get; set; }
+    private HL7Processor.Infrastructure.Entities.ValidationResult? ValidationResult { get; set; }
     private List<ValidationIssue>? ValidationIssues { get; set; }
 
     private async Task ValidateMessage()

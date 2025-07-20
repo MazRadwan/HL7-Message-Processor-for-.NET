@@ -8,8 +8,17 @@ using HL7Processor.Web.Hubs;
 using HL7Processor.Infrastructure.Repositories;
 using HL7Processor.Core.Communication.Queue;
 using HL7Processor.Api.Auth;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure forwarded headers for Azure App Service
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Add services to the container
 builder.Services.AddRazorPages();
@@ -18,7 +27,7 @@ builder.Services.AddServerSideBlazor();
 // Database
 var connectionString = Environment.GetEnvironmentVariable("HL7_CONNECTION_STRING") 
     ?? builder.Configuration.GetConnectionString("Hl7Db") 
-    ?? throw new InvalidOperationException("HL7_CONNECTION_STRING environment variable or 'Hl7Db' connection string is required");
+    ?? "Server=(localdb)\\mssqllocaldb;Database=HL7ProcessorDb;Trusted_Connection=true;MultipleActiveResultSets=true";
 
 builder.Services.AddDbContextPool<HL7DbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -33,7 +42,7 @@ var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<
 // Get JWT secret from environment variable or configuration
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") 
     ?? builder.Configuration["JWT_SECRET_KEY"] 
-    ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable or configuration value is required");
+    ?? "default-fallback-secret-for-demo-purposes-only";
 
 jwtSettings = new JwtSettings 
 { 
@@ -110,18 +119,27 @@ builder.Services.AddSignalR();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+// 1. UseForwardedHeaders() - Must be first to properly handle proxy headers
+app.UseForwardedHeaders();
+
+// 2. UseHttpsRedirection() - Redirect HTTP to HTTPS (skip in development)
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
-    app.UseHsts();
     app.UseHttpsRedirection();
+    app.UseHsts();
 }
+
+// 3. UseStaticFiles() - Serve static content
 app.UseStaticFiles();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
+// 4. UseRouting() - Enable routing
 app.UseRouting();
+
+// 5. UseAuthentication() - Must come after routing but before authorization
+app.UseAuthentication();
+
+// 6. UseAuthorization() - Must come after authentication
+app.UseAuthorization();
 
 app.MapRazorPages();
 app.MapBlazorHub();
@@ -130,17 +148,25 @@ app.MapHub<SystemHub>("/systemhub");
 app.MapFallbackToPage("/_Host");
 
 // Ensure database is created and seeded
-using (var scope = app.Services.CreateScope())
+try
 {
-    var context = scope.ServiceProvider.GetRequiredService<HL7DbContext>();
-    context.Database.EnsureCreated();
-    
-    // Seed with sample data (development only)
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<SeedDataService>>();
-    var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
-    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<HL7DbContext>>();
-    var seedService = new SeedDataService(context, logger, environment, contextFactory);
-    await seedService.SeedDataAsync();
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<HL7DbContext>();
+        context.Database.EnsureCreated();
+        
+        // Seed with sample data (development only)
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<SeedDataService>>();
+        var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<HL7DbContext>>();
+        var seedService = new SeedDataService(context, logger, environment, contextFactory);
+        await seedService.SeedDataAsync();
+    }
+}
+catch (Exception ex)
+{
+    // Log but don't fail the app startup if database setup fails
+    Console.WriteLine($"Database setup failed: {ex.Message}");
 }
 
 app.Run();
