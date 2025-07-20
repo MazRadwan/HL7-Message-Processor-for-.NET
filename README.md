@@ -29,6 +29,137 @@ Built for hospitals, laboratories and healthcare integrators who need modern, se
 | **Dev Experience** | • Clean, SOLID core library<br/>• 200+ unit/integration tests (xUnit / FluentAssertions)<br/>• One-command Docker compose for DB/demo server |
 
 ---
+## 🏗️ System Architecture
+
+The HL7 Processor follows a clean architecture pattern with clear separation of concerns across multiple layers:
+
+```mermaid
+graph TB
+    %% External Systems
+    HIS[("🏥<br/>Hospital<br/>Information<br/>System")]
+    LIS[("🧪<br/>Laboratory<br/>Information<br/>System")]
+    EHR[("📋<br/>Electronic<br/>Health<br/>Record")]
+    
+    %% MLLP Communication Layer
+    subgraph MLLP["🔌 MLLP Communication Layer"]
+        MLLPServer["MLLP Server<br/>(Port 2575)"]
+        MLLPClient["MLLP Client"]
+        MLLPProtocol["MLLP Protocol<br/>(ACK/NACK)"]
+    end
+    
+    %% Core Processing Engine
+    subgraph Core["⚙️ HL7Processor.Core"]
+        Parser["HL7 Parser<br/>(Segments/Fields)"]
+        Validator["Message Validator<br/>(Strict/Lenient)"]
+        Transformer["Data Transformer<br/>(HL7↔JSON/XML/FHIR)"]
+        TransformEngine["Transformation Engine<br/>(Rules/Mapping)"]
+    end
+    
+    %% Application Layer
+    subgraph Apps["🚀 Application Layer"]
+        WebApp["Blazor Web Dashboard<br/>(Port 7001)"]
+        WebAPI["REST API<br/>(Swagger/Controllers)"]
+        Console["Console App<br/>(CLI Tools)"]
+    end
+    
+    %% Infrastructure & Data
+    subgraph Infrastructure["🗄️ Infrastructure Layer"]
+        DbContext["Entity Framework<br/>DbContext"]
+        Repository["Message Repository<br/>(CRUD Operations)"]
+        AuditLog["Audit Interceptor<br/>(Change Tracking)"]
+    end
+    
+    %% Database
+    subgraph Database["💾 Azure SQL Database"]
+        MessageTable["HL7Messages<br/>(Segments/Fields)"]
+        ValidationTable["ValidationResults<br/>(Metrics/Errors)"]
+        TransformTable["TransformationHistory<br/>(Rules/Results)"]
+        ArchiveTable["ArchivedMessages<br/>(Retention)"]
+    end
+    
+    %% Real-time Communication
+    subgraph RealTime["⚡ Real-time Layer"]
+        SignalR["SignalR Hubs<br/>(Live Updates)"]
+        DashboardHub["Dashboard Hub"]
+        SystemHub["System Health Hub"]
+    end
+    
+    %% Security
+    subgraph Security["🔐 Security Layer"]
+        JWT["JWT Authentication<br/>(Token Service)"]
+        Auth["Authorization<br/>(Role-based)"]
+    end
+    
+    %% External connections
+    HIS -->|"HL7 v2 Messages<br/>TCP/MLLP"| MLLPServer
+    LIS -->|"Lab Results<br/>ORU^R01"| MLLPServer
+    EHR <-->|"Patient Data<br/>ADT Messages"| MLLPClient
+    
+    %% MLLP Layer
+    MLLPServer --> MLLPProtocol
+    MLLPClient --> MLLPProtocol
+    MLLPProtocol --> Parser
+    
+    %% Core Processing Flow
+    Parser --> Validator
+    Validator --> Transformer
+    Transformer --> TransformEngine
+    Parser --> Repository
+    
+    %% Application Interactions
+    WebApp --> WebAPI
+    WebApp --> SignalR
+    WebAPI --> Parser
+    WebAPI --> Repository
+    Console --> Parser
+    Console --> Repository
+    
+    %% Infrastructure Flow
+    Repository --> DbContext
+    DbContext --> AuditLog
+    DbContext --> MessageTable
+    DbContext --> ValidationTable
+    DbContext --> TransformTable
+    DbContext --> ArchiveTable
+    
+    %% Real-time Updates
+    Repository --> DashboardHub
+    DashboardHub --> WebApp
+    SystemHub --> WebApp
+    
+    %% Security Flow
+    WebApp --> JWT
+    WebAPI --> Auth
+    JWT --> Auth
+    
+    %% Styling
+    classDef external fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef core fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef app fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef security fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    classDef realtime fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class HIS,LIS,EHR external
+    class Parser,Validator,Transformer,TransformEngine core
+    class WebApp,WebAPI,Console app
+    class MessageTable,ValidationTable,TransformTable,ArchiveTable data
+    class JWT,Auth security
+    class SignalR,DashboardHub,SystemHub realtime
+```
+
+**Key Components:**
+- **🔌 MLLP Communication Layer**: Handles reliable HL7 v2 message transmission over TCP/IP
+- **⚙️ Core Processing Engine**: Business logic for HL7 message processing and transformation  
+- **🚀 Application Layer**: User interfaces (Blazor Dashboard) and API endpoints
+- **🗄️ Infrastructure Layer**: Data access and persistence management with Entity Framework
+- **💾 Data Storage**: Azure SQL Database with comprehensive audit trails
+- **⚡ Real-time Communication**: SignalR hubs for live updates and system monitoring
+- **🔐 Security Layer**: JWT authentication with role-based authorization
+
+For detailed component descriptions and data flows, see the [System Architecture Documentation](docs/SYSTEM_ARCHITECTURE.md).
+
+---
 ## 🏗️ Project Structure
 
 ```
