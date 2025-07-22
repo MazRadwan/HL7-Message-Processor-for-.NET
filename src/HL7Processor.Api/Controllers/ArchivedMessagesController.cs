@@ -1,8 +1,6 @@
-using HL7Processor.Infrastructure.Entities;
-using HL7Processor.Infrastructure.Repositories;
+using HL7Processor.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace HL7Processor.Api.Controllers;
 
@@ -11,27 +9,20 @@ namespace HL7Processor.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public class ArchivedMessagesController : ControllerBase
 {
-    private readonly HL7Processor.Infrastructure.HL7DbContext _db;
+    private readonly IArchivedMessageService _archivedMessageService;
 
-    public ArchivedMessagesController(HL7Processor.Infrastructure.HL7DbContext db)
+    public ArchivedMessagesController(IArchivedMessageService archivedMessageService)
     {
-        _db = db;
+        _archivedMessageService = archivedMessageService;
     }
 
     [HttpGet]
-    public IActionResult List(int page = 1, int pageSize = 20)
+    public async Task<IActionResult> List(int page = 1, int pageSize = 20)
     {
         if (page <= 0) page = 1;
         if (pageSize <= 0 || pageSize > 200) pageSize = 20;
 
-        var total = _db.ArchivedMessages.Count();
-        var items = _db.ArchivedMessages
-            .OrderByDescending(a => a.ArchivedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        var result = new PagedResult<HL7ArchivedMessageEntity>(items, total, page, pageSize);
+        var result = await _archivedMessageService.GetArchivedMessagesAsync(page, pageSize);
         return Ok(result);
     }
 } 

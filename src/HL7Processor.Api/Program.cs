@@ -1,11 +1,13 @@
 using HL7Processor.Core.Communication.Queue;
 using HL7Processor.Core.Communication.MLLP;
+using HL7Processor.Core.Services;
 using Microsoft.AspNetCore.SignalR;
 using HL7Processor.Api.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using HL7Processor.Infrastructure;
+using HL7Processor.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using HL7Processor.Infrastructure.Retention;
 using HL7Processor.Api.Services;
@@ -44,6 +46,7 @@ builder.Services.AddDbContextPool<HL7DbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddScoped<HL7Processor.Infrastructure.Repositories.IMessageRepository, HL7Processor.Infrastructure.Repositories.MessageRepository>();
+builder.Services.AddScoped<IArchivedMessageService, ArchivedMessageService>();
 
 var retentionSettings = builder.Configuration.GetSection(RetentionSettings.SectionName).Get<RetentionSettings>() ?? new RetentionSettings();
 builder.Services.AddSingleton(retentionSettings);
