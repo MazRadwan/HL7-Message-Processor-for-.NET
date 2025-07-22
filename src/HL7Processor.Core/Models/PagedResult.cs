@@ -11,4 +11,13 @@ public class PagedResult<T>
     public PagedResult()
     {
     }
+
+    public PagedResult(IEnumerable<T> items, int totalItems, int pageNumber, int pageSize)
+    {
+        Items = items.ToList();
+        TotalItems = totalItems;
+        PageNumber = pageNumber;
+        PageSize = pageSize;
+        TotalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+    }
 }

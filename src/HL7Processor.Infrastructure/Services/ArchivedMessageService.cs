@@ -13,7 +13,7 @@ public class ArchivedMessageService : IArchivedMessageService
         _context = context;
     }
 
-    public async Task<PagedResult<object>> GetArchivedMessagesAsync(int page = 1, int pageSize = 10)
+    public async Task<PagedResult<ArchivedMessageDto>> GetArchivedMessagesAsync(int page = 1, int pageSize = 10)
     {
         var total = await _context.ArchivedMessages.CountAsync();
         
@@ -21,16 +21,18 @@ public class ArchivedMessageService : IArchivedMessageService
             .OrderByDescending(a => a.ArchivedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(a => new ArchivedMessageDto
+            {
+                Id = a.Id,
+                OriginalMessageId = a.OriginalMessageId,
+                MessageType = a.MessageType,
+                Version = a.Version,
+                OriginalTimestamp = a.OriginalTimestamp,
+                ArchivedAt = a.ArchivedAt
+            })
             .ToListAsync();
 
-        return new PagedResult<object>
-        {
-            Items = messages.Cast<object>().ToList(),
-            TotalItems = total,
-            PageNumber = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling((double)total / pageSize)
-        };
+        return new PagedResult<ArchivedMessageDto>(messages, total, page, pageSize);
     }
 
     public async Task<int> GetArchivedMessageCountAsync()
