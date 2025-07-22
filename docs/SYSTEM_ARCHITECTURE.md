@@ -41,6 +41,7 @@ graph TB
     subgraph Infrastructure["🗄️ Infrastructure Layer"]
         DbContext["Entity Framework<br/>DbContext"]
         Repository["Message Repository<br/>(CRUD Operations)"]
+        ArchivedService["Archived Message Service<br/>(Business Logic)"]
         AuditLog["Audit Interceptor<br/>(Change Tracking)"]
     end
     
@@ -98,11 +99,13 @@ graph TB
     WebApp --> SignalR
     WebAPI --> Parser
     WebAPI --> Repository
+    WebAPI --> ArchivedService
     Console --> Parser
     Console --> Repository
     
     %% Infrastructure Flow
     Repository --> DbContext
+    ArchivedService --> DbContext
     DbContext --> AuditLog
     DbContext --> MessageTable
     DbContext --> ValidationTable
@@ -175,6 +178,7 @@ graph TB
 
 - **Entity Framework DbContext**: ORM for database operations
 - **Message Repository**: Repository pattern for CRUD operations
+- **Archived Message Service**: Business logic layer for archived message operations with proper DTOs
 - **Audit Interceptor**: Automatic change tracking for compliance
 
 ### 💾 Data Storage
@@ -229,7 +233,12 @@ Repository Changes → SignalR Hubs → Web Dashboard (Live Updates)
 
 ### 4. API Operations
 ```
-Client → REST API → Authentication → Core Processing → Response
+Client → REST API → Authentication → Service Layer → Repository/Core → Response
+```
+
+### 5. Clean Architecture Flow (Updated)
+```
+Controller → IArchivedMessageService → ArchivedMessageService → DbContext → Database
 ```
 
 ## Key Features
@@ -253,7 +262,9 @@ Client → REST API → Authentication → Core Processing → Response
 - **Data Retention**: Configurable archiving and cleanup policies
 
 ### 🔧 Developer Experience
-- **Clean Architecture**: SOLID principles with clear separation of concerns
+- **Clean Architecture**: SOLID principles with clear separation of concerns following Clean/Onion Architecture patterns
+- **Service Layer Pattern**: Business logic abstracted behind interfaces (e.g., IArchivedMessageService)
+- **Typed DTOs**: Proper data transfer objects instead of generic object types
 - **Extensible Design**: Plugin architecture for custom transformations
 - **Comprehensive Testing**: Unit, integration, and performance tests
 - **Documentation**: Detailed API documentation with Swagger
