@@ -75,7 +75,7 @@ public class ValidationService : IValidationService
         if (message == null)
             throw new ArgumentException($"Message with ID {messageId} not found");
 
-        // For now, we'll generate a basic HL7 structure from the stored message data
+        // For now,  generated a basic HL7 structure from the stored message data
         // In a real implementation, you'd store the original content or reconstruct it
         var reconstructedContent = $"MSH|^~\\&|SYSTEM|FACILITY|DEST|DEST|{message.Timestamp:yyyyMMddHHmmss}||{message.MessageType}|{messageId}|P|{message.Version}";
         
