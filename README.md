@@ -31,7 +31,7 @@ Built for hospitals, laboratories and healthcare integrators who need modern, se
 ---
 ## 🏗️ System Architecture
 
-The HL7 Processor follows a clean architecture pattern with clear separation of concerns across multiple layers:
+The HL7 Processor follows **Clean Architecture** principles with clear separation of concerns and proper dependency inversion across multiple layers:
 
 ```mermaid
 graph TB
@@ -47,26 +47,41 @@ graph TB
         MLLPProtocol["MLLP Protocol<br/>(ACK/NACK)"]
     end
     
-    %% Core Processing Engine
-    subgraph Core["⚙️ HL7Processor.Core"]
+    %% Presentation Layer (API Controllers)
+    subgraph Presentation["🎯 Presentation Layer (API)"]
+        ArchivedController["ArchivedMessages<br/>Controller"]
+        MessageController["Message<br/>Controller"]
+        AuthController["Auth<br/>Controller"]
+        DeadLetterController["DeadLetter<br/>Controller"]
+    end
+    
+    %% Application Layer (Use Cases)
+    subgraph Application["📋 Application Layer"]
+        GetArchivedUseCase["Get Archived<br/>Messages Use Case"]
+        SubmitMessageUseCase["Submit Message<br/>Use Case"]
+        AuthenticateUseCase["Authenticate<br/>User Use Case"]
+        RequeueUseCase["Requeue Message<br/>Use Case"]
+        DTOs["📦 DTOs<br/>(Data Transfer Objects)"]
+        Mappers["🔄 Mappers<br/>(Entity ↔ DTO)"]
+    end
+    
+    %% Core Domain Layer
+    subgraph Core["⚙️ Core Domain Layer"]
+        DomainEntities["🏗️ Domain Entities<br/>(ArchivedMessage, HL7Message)"]
+        BusinessRules["📜 Business Rules<br/>(Validation, Logic)"]
+        DomainInterfaces["🔌 Repository Interfaces<br/>(IArchivedMessageRepository)"]
         Parser["HL7 Parser<br/>(Segments/Fields)"]
         Validator["Message Validator<br/>(Strict/Lenient)"]
         Transformer["Data Transformer<br/>(HL7↔JSON/XML/FHIR)"]
-        TransformEngine["Transformation Engine<br/>(Rules/Mapping)"]
     end
     
-    %% Application Layer
-    subgraph Apps["🚀 Application Layer"]
-        WebApp["Blazor Web Dashboard<br/>(Port 7001)"]
-        WebAPI["REST API<br/>(Swagger/Controllers)"]
-        Console["Console App<br/>(CLI Tools)"]
-    end
-    
-    %% Infrastructure & Data
+    %% Infrastructure Layer
     subgraph Infrastructure["🗄️ Infrastructure Layer"]
+        Repositories["📚 Concrete Repositories<br/>(ArchivedMessageRepository)"]
         DbContext["Entity Framework<br/>DbContext"]
-        Repository["Message Repository<br/>(CRUD Operations)"]
+        TokenService["🔐 Token Service<br/>(JWT Implementation)"]
         AuditLog["Audit Interceptor<br/>(Change Tracking)"]
+        EFEntities["💾 EF Entities<br/>(Database Models)"]
     end
     
     %% Database
@@ -77,17 +92,11 @@ graph TB
         ArchiveTable["ArchivedMessages<br/>(Retention)"]
     end
     
-    %% Real-time Communication
-    subgraph RealTime["⚡ Real-time Layer"]
-        SignalR["SignalR Hubs<br/>(Live Updates)"]
-        DashboardHub["Dashboard Hub"]
-        SystemHub["System Health Hub"]
-    end
-    
-    %% Security
-    subgraph Security["🔐 Security Layer"]
-        JWT["JWT Authentication<br/>(Token Service)"]
-        Auth["Authorization<br/>(Role-based)"]
+    %% UI Applications
+    subgraph UI["🚀 User Interface Layer"]
+        WebApp["Blazor Web Dashboard<br/>(Port 7001)"]
+        Console["Console App<br/>(CLI Tools)"]
+        SignalR["SignalR Hubs<br/>(Real-time Updates)"]
     end
     
     %% External connections
@@ -95,91 +104,152 @@ graph TB
     LIS -->|"Lab Results<br/>ORU^R01"| MLLPServer
     EHR <-->|"Patient Data<br/>ADT Messages"| MLLPClient
     
-    %% MLLP Layer
+    %% MLLP to Core
     MLLPServer --> MLLPProtocol
     MLLPClient --> MLLPProtocol
     MLLPProtocol --> Parser
     
-    %% Core Processing Flow
+    %% Clean Architecture Dependency Flow (API → Application → Core ← Infrastructure)
+    ArchivedController --> GetArchivedUseCase
+    MessageController --> SubmitMessageUseCase
+    AuthController --> AuthenticateUseCase
+    DeadLetterController --> RequeueUseCase
+    
+    %% Application Layer Dependencies
+    GetArchivedUseCase --> DomainInterfaces
+    SubmitMessageUseCase --> DomainInterfaces
+    AuthenticateUseCase --> DomainInterfaces
+    RequeueUseCase --> DomainInterfaces
+    GetArchivedUseCase --> Mappers
+    Mappers --> DTOs
+    
+    %% Infrastructure Implements Core Interfaces
+    Repositories -.->|implements| DomainInterfaces
+    TokenService -.->|implements| DomainInterfaces
+    
+    %% Infrastructure to Core Domain
+    Repositories --> DomainEntities
+    Repositories --> BusinessRules
+    
+    %% Infrastructure Data Flow
+    Repositories --> DbContext
+    DbContext --> EFEntities
+    DbContext --> AuditLog
+    EFEntities --> MessageTable
+    EFEntities --> ValidationTable
+    EFEntities --> TransformTable
+    EFEntities --> ArchiveTable
+    
+    %% UI Layer
+    WebApp --> ArchivedController
+    WebApp --> MessageController
+    WebApp --> AuthController
+    Console --> SubmitMessageUseCase
+    SignalR --> WebApp
+    
+    %% Core Processing (Domain Logic)
     Parser --> Validator
     Validator --> Transformer
-    Transformer --> TransformEngine
-    Parser --> Repository
-    
-    %% Application Interactions
-    WebApp --> WebAPI
-    WebApp --> SignalR
-    WebAPI --> Parser
-    WebAPI --> Repository
-    Console --> Parser
-    Console --> Repository
-    
-    %% Infrastructure Flow
-    Repository --> DbContext
-    DbContext --> AuditLog
-    DbContext --> MessageTable
-    DbContext --> ValidationTable
-    DbContext --> TransformTable
-    DbContext --> ArchiveTable
-    
-    %% Real-time Updates
-    Repository --> DashboardHub
-    DashboardHub --> WebApp
-    SystemHub --> WebApp
-    
-    %% Security Flow
-    WebApp --> JWT
-    WebAPI --> Auth
-    JWT --> Auth
+    Parser --> BusinessRules
     
     %% Styling
     classDef external fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef core fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef app fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef security fill:#ffebee,stroke:#b71c1c,stroke-width:2px
-    classDef realtime fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    classDef presentation fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef application fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef core fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
+    classDef infrastructure fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef data fill:#fafafa,stroke:#424242,stroke-width:2px
+    classDef ui fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
     
     class HIS,LIS,EHR external
-    class Parser,Validator,Transformer,TransformEngine core
-    class WebApp,WebAPI,Console app
+    class ArchivedController,MessageController,AuthController,DeadLetterController presentation
+    class GetArchivedUseCase,SubmitMessageUseCase,AuthenticateUseCase,RequeueUseCase,DTOs,Mappers application
+    class DomainEntities,BusinessRules,DomainInterfaces,Parser,Validator,Transformer core
+    class Repositories,DbContext,TokenService,AuditLog,EFEntities infrastructure
     class MessageTable,ValidationTable,TransformTable,ArchiveTable data
-    class JWT,Auth security
-    class SignalR,DashboardHub,SystemHub realtime
+    class WebApp,Console,SignalR ui
 ```
 
-**Key Components:**
-- **🔌 MLLP Communication Layer**: Handles reliable HL7 v2 message transmission over TCP/IP
-- **⚙️ Core Processing Engine**: Business logic for HL7 message processing and transformation  
-- **🚀 Application Layer**: User interfaces (Blazor Dashboard) and API endpoints
-- **🗄️ Infrastructure Layer**: Data access and persistence management with Entity Framework
-- **💾 Data Storage**: Azure SQL Database with comprehensive audit trails
-- **⚡ Real-time Communication**: SignalR hubs for live updates and system monitoring
-- **🔐 Security Layer**: JWT authentication with role-based authorization
+**Clean Architecture Principles Applied:**
+- **🎯 Presentation Layer**: API Controllers depend only on Application Use Cases
+- **📋 Application Layer**: Use Cases orchestrate business workflows using Domain Interfaces  
+- **⚙️ Core Domain**: Contains business entities, rules, and interfaces (no external dependencies)
+- **🗄️ Infrastructure Layer**: Implements Core interfaces, handles data access and external services
+- **🚀 UI Layer**: User interfaces that consume the API endpoints
+
+**Key Benefits:**
+- **Dependency Inversion**: Controllers depend on abstractions, not implementations
+- **Testability**: Use Cases can be unit tested in isolation
+- **Maintainability**: Business logic is isolated from infrastructure concerns
+- **Flexibility**: Infrastructure can be changed without affecting business logic
 
 For detailed component descriptions and data flows, see the [System Architecture Documentation](docs/SYSTEM_ARCHITECTURE.md).
 
 ---
 ## 🏗️ Project Structure
 
+The solution follows **Clean Architecture** principles with clear layer separation and dependency direction:
+
 ```
 HL7/
-├── src/                        # Source code
-│   ├── HL7Processor.Core/          # Domain models & business logic
-│   ├── HL7Processor.Infrastructure/ # EF Core, repositories, database
-│   ├── HL7Processor.Api/           # REST API & SignalR hubs
-│   ├── HL7Processor.Web/           # Blazor Server dashboard
-│   └── HL7Processor.Console/       # CLI tools & diagnostics
-├── tests/                      # Test projects
-│   └── HL7Processor.Tests/         # Unit & integration tests
-├── docs/                       # Documentation
-│   ├── DEPLOYMENT.md               # Deployment guide
-│   └── HL7-Implementation-Stages.md # Implementation roadmap
-├── scripts/                    # Build & deployment scripts
-│   └── deploy/                     # Azure deployment scripts
-├── infrastructure/             # Infrastructure as Code (ready for use)
-└── README.md                   # This file
+├── src/                            # Source code organized by Clean Architecture layers
+│   ├── HL7Processor.Core/              # 🎯 Domain Layer (innermost)
+│   │   ├── Models/                     #   • Domain entities (ArchivedMessage, HL7Message)
+│   │   ├── Interfaces/                 #   • Repository interfaces (IArchivedMessageRepository)  
+│   │   ├── Parsing/                    #   • HL7 parsing logic
+│   │   ├── Validation/                 #   • Business validation rules
+│   │   └── Transformation/             #   • Data transformation engines
+│   ├── HL7Processor.Application/       # 📋 Application Layer
+│   │   ├── DTOs/                       #   • Data transfer objects
+│   │   ├── UseCases/                   #   • Use case implementations
+│   │   ├── Interfaces/                 #   • Application service interfaces
+│   │   └── DependencyInjection.cs     #   • Service registration
+│   ├── HL7Processor.Infrastructure/    # 🗄️ Infrastructure Layer  
+│   │   ├── Entities/                   #   • EF Core entity models
+│   │   ├── Repositories/               #   • Repository implementations
+│   │   ├── Services/                   #   • External service adapters
+│   │   ├── Mapping/                    #   • Entity/DTO mappers
+│   │   ├── Auth/                       #   • JWT authentication
+│   │   └── HL7DbContext.cs             #   • Entity Framework context
+│   ├── HL7Processor.Api/               # 🎯 Presentation Layer (API)
+│   │   ├── Controllers/                #   • REST API controllers
+│   │   ├── Services/                   #   • Background services
+│   │   └── Program.cs                  #   • Application startup
+│   ├── HL7Processor.Web/               # 🚀 Presentation Layer (UI)
+│   │   ├── Pages/                      #   • Blazor pages
+│   │   ├── Components/                 #   • Reusable UI components
+│   │   ├── Services/                   #   • UI-specific services
+│   │   └── Hubs/                       #   • SignalR real-time hubs
+│   └── HL7Processor.Console/           # 🛠️ CLI Tools
+│       └── Program.cs                  #   • Command-line interface
+├── tests/                          # Test projects
+│   ├── HL7Processor.Tests/             # Unit & integration tests
+│   └── HL7Processor.Web.Tests/         # UI component tests
+├── docs/                           # Documentation
+│   ├── DEPLOYMENT.md                   # Deployment guide
+│   ├── SYSTEM_ARCHITECTURE.md          # Detailed architecture docs
+│   └── HL7-Implementation-Stages.md    # Implementation roadmap
+├── scripts/                        # Build & deployment scripts
+│   └── deploy/                         # Azure deployment scripts
+├── infrastructure/                 # Infrastructure as Code
+├── CLEAN_ARCHITECTURE_REFACTORING_SUMMARY.md # Refactoring documentation
+└── README.md                       # This file
 ```
+
+### 🔄 Dependency Flow (Clean Architecture)
+```
+Presentation Layer (API/Web)
+        ↓ depends on
+Application Layer (Use Cases)  
+        ↓ depends on
+Domain Layer (Core) ← implements ← Infrastructure Layer
+```
+
+**Key Principles:**
+- **Core**: No external dependencies, pure business logic
+- **Application**: Orchestrates workflows, depends only on Core
+- **Infrastructure**: Implements Core interfaces, handles external concerns
+- **Presentation**: Depends on Application layer, not Infrastructure directly
 
 ---
 ## 🚀 Getting Started
