@@ -1,6 +1,7 @@
 using HL7Processor.Infrastructure;
 using HL7Processor.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,6 +15,7 @@ public class SeedDataIntegrationTests : IDisposable
     private readonly HL7Processor.Infrastructure.HL7DbContext _context;
     private readonly Mock<ILogger<SeedDataService>> _loggerMock;
     private readonly Mock<IHostEnvironment> _environmentMock;
+    private readonly Mock<IDbContextFactory<HL7Processor.Infrastructure.HL7DbContext>> _factoryMock;
 
     public SeedDataIntegrationTests()
     {
@@ -24,6 +26,9 @@ public class SeedDataIntegrationTests : IDisposable
         _context = new HL7Processor.Tests.TestDbContext(options);
         _loggerMock = new Mock<ILogger<SeedDataService>>();
         _environmentMock = new Mock<IHostEnvironment>();
+        _factoryMock = new Mock<IDbContextFactory<HL7Processor.Infrastructure.HL7DbContext>>();
+        _factoryMock.Setup(f => f.CreateDbContext()).Returns(_context);
+        _factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>())).ReturnsAsync(_context);
     }
 
     [Fact]
@@ -31,7 +36,7 @@ public class SeedDataIntegrationTests : IDisposable
     {
         // Arrange
         _environmentMock.Setup(x => x.EnvironmentName).Returns("Development");
-        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object);
+        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object, _factoryMock.Object);
 
         // Act
         await seedService.SeedDataAsync();
@@ -52,7 +57,7 @@ public class SeedDataIntegrationTests : IDisposable
     {
         // Arrange
         _environmentMock.Setup(x => x.EnvironmentName).Returns("Production");
-        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object);
+        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object, _factoryMock.Object);
 
         // Act
         await seedService.SeedDataAsync();
@@ -67,7 +72,7 @@ public class SeedDataIntegrationTests : IDisposable
     {
         // Arrange
         _environmentMock.Setup(x => x.EnvironmentName).Returns("Development");
-        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object);
+        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object, _factoryMock.Object);
 
         // Seed first time
         await seedService.SeedDataAsync();
@@ -86,7 +91,7 @@ public class SeedDataIntegrationTests : IDisposable
     {
         // Arrange
         _environmentMock.Setup(x => x.EnvironmentName).Returns("Development");
-        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object);
+        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object, _factoryMock.Object);
         await seedService.SeedDataAsync();
 
         var repository = new MessageRepository(_context);
@@ -119,7 +124,7 @@ public class SeedDataIntegrationTests : IDisposable
     {
         // Arrange
         _environmentMock.Setup(x => x.EnvironmentName).Returns("Development");
-        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object);
+        var seedService = new SeedDataService(_context, _loggerMock.Object, _environmentMock.Object, _factoryMock.Object);
         await seedService.SeedDataAsync();
 
         // Act - Query by PatientId (should use index)

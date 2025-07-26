@@ -1,6 +1,5 @@
-using HL7Processor.Infrastructure;
+using HL7Processor.Application.UseCases;
 using HL7Processor.Web.Components;
-using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 
 namespace HL7Processor.Web.Services;
@@ -12,71 +11,48 @@ public interface ISystemHealthService
 
 public class SystemHealthService : ISystemHealthService
 {
-    private readonly HL7DbContext _context;
+    private readonly IGetSystemHealthUseCase _getSystemHealthUseCase;
     private readonly ILogger<SystemHealthService> _logger;
 
-    public SystemHealthService(HL7DbContext context, ILogger<SystemHealthService> logger)
+    public SystemHealthService(IGetSystemHealthUseCase getSystemHealthUseCase, ILogger<SystemHealthService> logger)
     {
-        _context = context;
+        _getSystemHealthUseCase = getSystemHealthUseCase;
         _logger = logger;
     }
 
     public async Task<SystemHealthIndicator.SystemHealth> GetSystemHealthAsync()
     {
-        var health = new SystemHealthIndicator.SystemHealth();
-
         try
         {
-            // Check database connectivity
-            health.DatabaseConnected = await CheckDatabaseConnectivityAsync();
-
-            // Get queue length (pending messages)
-            health.QueueLength = await GetQueueLengthAsync();
-
-            // Check system resources
-            health.CpuUsage = GetCpuUsage();
-            health.MemoryUsage = GetMemoryUsage();
-
-            // SignalR connectivity (always true if we're getting this call)
-            health.SignalRConnected = true;
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var healthDto = await _getSystemHealthUseCase.GetSystemHealthAsync();
+            
+            // Map Application DTO to Web layer model and add Web-specific health checks
+            var health = new SystemHealthIndicator.SystemHealth
+            {
+                DatabaseConnected = healthDto.Database.IsConnected,
+                QueueLength = healthDto.Processing.QueueLength,
+                MemoryUsage = healthDto.Memory.UsedMemoryBytes / (1024.0 * 1024.0), // Convert to MB
+                CpuUsage = GetCpuUsage(), // Keep this local since it's Web-specific
+                SignalRConnected = true // Always true if we're getting this call
+            };
 
             // Determine overall status
             health.OverallStatus = DetermineOverallStatus(health);
+            
+            return health;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting system health");
-            health.OverallStatus = SystemHealthIndicator.SystemStatus.Critical;
-        }
-
-        return health;
-    }
-
-    private async Task<bool> CheckDatabaseConnectivityAsync()
-    {
-        try
-        {
-            await _context.Database.CanConnectAsync();
-            return true;
-        }
-        catch
-        {
-            return false;
+            return new SystemHealthIndicator.SystemHealth
+            {
+                OverallStatus = SystemHealthIndicator.SystemStatus.Critical
+            };
         }
     }
 
-    private async Task<int> GetQueueLengthAsync()
-    {
-        try
-        {
-            return await _context.Messages
-                .CountAsync(m => m.ProcessingStatus == "Pending" || m.ProcessingStatus == "Processing");
-        }
-        catch
-        {
-            return -1;
-        }
-    }
+    // Removed - now handled by Application layer Use Case
 
     private double GetCpuUsage()
     {

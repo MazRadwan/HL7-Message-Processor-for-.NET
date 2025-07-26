@@ -1,6 +1,5 @@
-using HL7Processor.Infrastructure;
-using HL7Processor.Infrastructure.Entities;
-using Microsoft.EntityFrameworkCore;
+using HL7Processor.Application.UseCases;
+using HL7Processor.Web.Models;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -8,42 +7,29 @@ namespace HL7Processor.Web.Services;
 
 public class ValidationService : IValidationService
 {
-    private readonly IDbContextFactory<HL7DbContext> _contextFactory;
+    private readonly IGetValidationDataUseCase _getValidationDataUseCase;
     private readonly ILogger<ValidationService> _logger;
     private readonly IParserMetricsService _parserMetricsService;
 
-    public ValidationService(IDbContextFactory<HL7DbContext> contextFactory, ILogger<ValidationService> logger, IParserMetricsService parserMetricsService)
+    public ValidationService(IGetValidationDataUseCase getValidationDataUseCase, ILogger<ValidationService> logger, IParserMetricsService parserMetricsService)
     {
-        _contextFactory = contextFactory;
+        _getValidationDataUseCase = getValidationDataUseCase;
         _logger = logger;
         _parserMetricsService = parserMetricsService;
     }
 
-    public async Task<ValidationResult> ValidateMessageAsync(string hl7Content, string validationLevel = "Strict")
+    public async Task<Models.ValidationResult> ValidateMessageAsync(string hl7Content, string validationLevel = "Strict")
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
         var stopwatch = Stopwatch.StartNew();
         
         try
         {
-            var issues = await PerformValidation(hl7Content, validationLevel);
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var resultDto = await _getValidationDataUseCase.ValidateMessageAsync(hl7Content, validationLevel);
             stopwatch.Stop();
             
-            // Extract parsing metrics from HL7 content
+            // Extract parsing metrics from HL7 content (keep this local logic)
             var parsingMetrics = ExtractParsingMetrics(hl7Content);
-
-            var result = new ValidationResult
-            {
-                ValidationLevel = validationLevel,
-                IsValid = !issues.Any(i => i.Type == "Error"),
-                ErrorCount = issues.Count(i => i.Type == "Error"),
-                WarningCount = issues.Count(i => i.Type == "Warning"),
-                ValidationDetails = JsonSerializer.Serialize(issues),
-                ProcessingTimeMs = (int)stopwatch.ElapsedMilliseconds
-            };
-
-            context.ValidationResults.Add(result);
-            await context.SaveChangesAsync();
             
             // Record parser metrics
             await _parserMetricsService.RecordParsingMetricAsync(
@@ -52,8 +38,22 @@ public class ValidationService : IValidationService
                 parsingMetrics.SegmentCount,
                 parsingMetrics.FieldCount,
                 parsingMetrics.ComponentCount,
-                result.ProcessingTimeMs
+                resultDto.ProcessingTimeMs
             );
+
+            // Map Application DTO to Web model
+            var result = new Models.ValidationResult
+            {
+                Id = resultDto.Id,
+                MessageId = resultDto.MessageId,
+                ValidationLevel = resultDto.ValidationLevel,
+                IsValid = resultDto.IsValid,
+                ErrorCount = resultDto.ErrorCount,
+                WarningCount = resultDto.WarningCount,
+                ValidationDetails = resultDto.ValidationDetails,
+                ProcessingTimeMs = resultDto.ProcessingTimeMs,
+                CreatedAt = resultDto.CreatedAt
+            };
 
             _logger.LogInformation("Validated HL7 message: {IsValid}, {ErrorCount} errors, {WarningCount} warnings in {ProcessingTime}ms", 
                 result.IsValid, result.ErrorCount, result.WarningCount, result.ProcessingTimeMs);
@@ -67,81 +67,116 @@ public class ValidationService : IValidationService
         }
     }
 
-    public async Task<ValidationResult> ValidateMessageAsync(Guid messageId, string validationLevel = "Strict")
+    public async Task<Models.ValidationResult> ValidateMessageAsync(Guid messageId, string validationLevel = "Strict")
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        var message = await context.Messages.FindAsync(messageId);
-        if (message == null)
-            throw new ArgumentException($"Message with ID {messageId} not found");
-
-        // For now,  generated a basic HL7 structure from the stored message data
-        // In a real implementation, you'd store the original content or reconstruct it
-        var reconstructedContent = $"MSH|^~\\&|SYSTEM|FACILITY|DEST|DEST|{message.Timestamp:yyyyMMddHHmmss}||{message.MessageType}|{messageId}|P|{message.Version}";
-        
-        var result = await ValidateMessageAsync(reconstructedContent, validationLevel);
-        result.MessageId = messageId;
-        
-        await context.SaveChangesAsync();
-        return result;
-    }
-
-    public async Task<List<ValidationResult>> GetValidationHistoryAsync(int limit = 50)
-    {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        return await context.ValidationResults
-            .Include(v => v.Message)
-            .OrderByDescending(v => v.CreatedAt)
-            .Take(limit)
-            .ToListAsync();
-    }
-
-    public async Task<ValidationMetrics> GetValidationMetricsAsync(DateTime? fromDate = null)
-    {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        var startDate = fromDate ?? DateTime.UtcNow.AddDays(-30);
-        
-        var validations = await context.ValidationResults
-            .Where(v => v.CreatedAt >= startDate)
-            .ToListAsync();
-
-        var metrics = new ValidationMetrics
+        try
         {
-            TotalValidations = validations.Count,
-            ValidCount = validations.Count(v => v.IsValid),
-            InvalidCount = validations.Count(v => !v.IsValid),
-            AverageProcessingTimeMs = validations.Any() ? validations.Average(v => v.ProcessingTimeMs) : 0,
-            ErrorsByLevel = validations
-                .GroupBy(v => v.ValidationLevel)
-                .ToDictionary(g => g.Key, g => g.Sum(v => v.ErrorCount))
-        };
+            // Use Application layer Use Case to get validation by ID
+            var resultDto = await _getValidationDataUseCase.GetValidationResultByIdAsync(messageId);
+            if (resultDto == null)
+                throw new ArgumentException($"Validation result for message ID {messageId} not found");
 
-        // Extract common errors from validation details
-        var allIssues = validations
-            .Where(v => !string.IsNullOrEmpty(v.ValidationDetails))
-            .SelectMany(v => 
+            // Map Application DTO to Web model
+            return new Models.ValidationResult
             {
-                try
-                {
-                    return JsonSerializer.Deserialize<List<ValidationIssue>>(v.ValidationDetails!) ?? new List<ValidationIssue>();
-                }
-                catch
-                {
-                    return new List<ValidationIssue>();
-                }
-            })
-            .Where(i => i.Type == "Error")
-            .ToList();
+                Id = resultDto.Id,
+                MessageId = resultDto.MessageId,
+                ValidationLevel = resultDto.ValidationLevel,
+                IsValid = resultDto.IsValid,
+                ErrorCount = resultDto.ErrorCount,
+                WarningCount = resultDto.WarningCount,
+                ValidationDetails = resultDto.ValidationDetails,
+                ProcessingTimeMs = resultDto.ProcessingTimeMs,
+                CreatedAt = resultDto.CreatedAt
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating message by ID {MessageId}", messageId);
+            throw;
+        }
+    }
 
-        metrics.CommonErrors = allIssues
-            .GroupBy(i => i.Rule)
-            .OrderByDescending(g => g.Count())
-            .Take(10)
-            .ToDictionary(g => g.Key, g => g.Count());
+    public async Task<List<Models.ValidationResult>> GetValidationHistoryAsync(int limit = 50)
+    {
+        try
+        {
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var resultDtos = await _getValidationDataUseCase.GetRecentValidationResultsAsync(limit);
+            
+            // Map Application DTOs to Web models
+            return resultDtos.Select(dto => new Models.ValidationResult
+            {
+                Id = dto.Id,
+                MessageId = dto.MessageId,
+                ValidationLevel = dto.ValidationLevel,
+                IsValid = dto.IsValid,
+                ErrorCount = dto.ErrorCount,
+                WarningCount = dto.WarningCount,
+                ValidationDetails = dto.ValidationDetails,
+                ProcessingTimeMs = dto.ProcessingTimeMs,
+                CreatedAt = dto.CreatedAt
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting validation history");
+            return new List<ValidationResult>();
+        }
+    }
 
-        return metrics;
+    public async Task<Models.ValidationMetrics> GetValidationMetricsAsync(DateTime? fromDate = null)
+    {
+        try
+        {
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var validationDtos = await _getValidationDataUseCase.GetRecentValidationResultsAsync(1000); // Get enough for metrics
+            
+            // Filter by date if provided
+            var startDate = fromDate ?? DateTime.UtcNow.AddDays(-30);
+            var validations = validationDtos.Where(v => v.CreatedAt >= startDate).ToList();
+
+            var metrics = new Models.ValidationMetrics
+            {
+                TotalValidations = validations.Count,
+                ValidCount = validations.Count(v => v.IsValid),
+                InvalidCount = validations.Count(v => !v.IsValid),
+                AverageProcessingTimeMs = validations.Any() ? validations.Average(v => v.ProcessingTimeMs) : 0,
+                ErrorsByLevel = validations
+                    .GroupBy(v => v.ValidationLevel)
+                    .ToDictionary(g => g.Key, g => g.Sum(v => v.ErrorCount))
+            };
+
+            // Extract common errors from validation details
+            var allIssues = validations
+                .Where(v => !string.IsNullOrEmpty(v.ValidationDetails))
+                .SelectMany(v => 
+                {
+                    try
+                    {
+                        return JsonSerializer.Deserialize<List<ValidationIssue>>(v.ValidationDetails!) ?? new List<ValidationIssue>();
+                    }
+                    catch
+                    {
+                        return new List<ValidationIssue>();
+                    }
+                })
+                .Where(i => i.Type == "Error")
+                .ToList();
+
+            metrics.CommonErrors = allIssues
+                .GroupBy(i => i.Rule)
+                .OrderByDescending(g => g.Count())
+                .Take(10)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            return metrics;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting validation metrics");
+            return new Models.ValidationMetrics();
+        }
     }
 
     private async Task<List<ValidationIssue>> PerformValidation(string hl7Content, string validationLevel)
