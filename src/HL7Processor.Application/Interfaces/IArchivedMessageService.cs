@@ -1,6 +1,6 @@
-using HL7Processor.Core.Models;
+using HL7Processor.Application.DTOs;
 
-namespace HL7Processor.Core.Services;
+namespace HL7Processor.Application.Interfaces;
 
 public interface IArchivedMessageService
 {

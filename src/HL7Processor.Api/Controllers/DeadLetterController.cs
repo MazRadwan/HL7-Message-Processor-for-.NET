@@ -1,4 +1,4 @@
-using HL7Processor.Core.Communication.Queue;
+using HL7Processor.Application.UseCases;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,21 +9,21 @@ namespace HL7Processor.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public class DeadLetterController : ControllerBase
 {
-    private readonly IMessageQueue _queue;
+    private readonly IRequeueMessageUseCase _requeueMessageUseCase;
 
-    public DeadLetterController(IMessageQueue queue)
+    public DeadLetterController(IRequeueMessageUseCase requeueMessageUseCase)
     {
-        _queue = queue;
+        _requeueMessageUseCase = requeueMessageUseCase;
     }
 
     [HttpPost("requeue")] // Requeue latest message from DLQ to primary queue
     public async Task<IActionResult> Requeue(string queueName, CancellationToken token)
     {
-        var payload = await _queue.ReceiveFromDeadLetterAsync(queueName, token);
-        if (payload is null)
+        var success = await _requeueMessageUseCase.ExecuteAsync(queueName, token);
+        
+        if (!success)
             return NotFound();
 
-        await _queue.PublishAsync(queueName, payload, token);
         return Ok();
     }
 } 

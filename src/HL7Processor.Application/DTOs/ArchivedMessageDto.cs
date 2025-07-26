@@ -1,4 +1,4 @@
-namespace HL7Processor.Core.Models;
+namespace HL7Processor.Application.DTOs;
 
 public class ArchivedMessageDto
 {

@@ -1,14 +1,17 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using HL7Processor.Application.Interfaces;
+using HL7Processor.Infrastructure.Auth;
 using Microsoft.IdentityModel.Tokens;
 
-namespace HL7Processor.Api.Auth;
+namespace HL7Processor.Infrastructure.Services;
 
-public class TokenService
+public class TokenServiceAdapter : ITokenService
 {
     private readonly JwtSettings _settings;
-    public TokenService(JwtSettings settings)
+
+    public TokenServiceAdapter(JwtSettings settings)
     {
         _settings = settings;
     }
@@ -34,4 +37,4 @@ public class TokenService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-} 
+}

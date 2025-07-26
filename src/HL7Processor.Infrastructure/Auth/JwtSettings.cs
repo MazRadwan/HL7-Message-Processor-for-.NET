@@ -1,4 +1,4 @@
-namespace HL7Processor.Api.Auth;
+namespace HL7Processor.Infrastructure.Auth;
 
 public class JwtSettings
 {
@@ -7,4 +7,4 @@ public class JwtSettings
     public string Audience { get; init; } = "HL7ProcessorAudience";
     public string SecretKey { get; init; } = string.Empty;
     public int ExpirationMinutes { get; init; } = 60;
-} 
+}

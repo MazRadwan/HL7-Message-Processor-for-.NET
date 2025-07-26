@@ -1,5 +1,4 @@
-using HL7Processor.Core.Communication.Queue;
-using HL7Processor.Core.Communication.MLLP;
+using HL7Processor.Application.UseCases;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -10,23 +9,21 @@ namespace HL7Processor.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public class MessageController : ControllerBase
 {
-    private readonly IMessageQueue _queue;
-    private readonly ILogger<MessageController> _logger;
+    private readonly ISubmitMessageUseCase _submitMessageUseCase;
 
-    public MessageController(IMessageQueue queue, ILogger<MessageController> logger)
+    public MessageController(ISubmitMessageUseCase submitMessageUseCase)
     {
-        _queue = queue;
-        _logger = logger;
+        _submitMessageUseCase = submitMessageUseCase;
     }
 
     [HttpPost]
     public async Task<IActionResult> Submit([FromBody] string hl7Message, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(hl7Message))
+        var success = await _submitMessageUseCase.ExecuteAsync(hl7Message, token);
+        
+        if (!success)
             return BadRequest("Message cannot be empty");
 
-        await _queue.PublishAsync("hl7_in", System.Text.Encoding.UTF8.GetBytes(hl7Message), token);
-        _logger.LogInformation("Received HL7 message via API, queued for processing");
         return Accepted();
     }
 } 
