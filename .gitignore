@@ -274,3 +274,6 @@ query-db.cs
 # Deployment scripts (move to scripts/deploy/ instead)
 deploy-to-azure.*
 run-migrations.sh
+
+# summary
+CLEAN_ARCHITECTURE_REFACTORING_SUMMARY.md

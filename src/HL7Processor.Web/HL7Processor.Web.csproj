@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HL7Processor.Core\HL7Processor.Core.csproj" />
+    <ProjectReference Include="..\HL7Processor.Application\HL7Processor.Application.csproj" />
     <ProjectReference Include="..\HL7Processor.Infrastructure\HL7Processor.Infrastructure.csproj" />
-    <ProjectReference Include="..\HL7Processor.Api\HL7Processor.Api.csproj" />
+    <ProjectReference Include="..\HL7Processor.Core\HL7Processor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

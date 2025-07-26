@@ -7,7 +7,7 @@ using HL7Processor.Web.Services;
 using HL7Processor.Web.Hubs;
 using HL7Processor.Infrastructure.Repositories;
 using HL7Processor.Core.Communication.Queue;
-using HL7Processor.Api.Auth;
+using HL7Processor.Infrastructure.Auth;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
