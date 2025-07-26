@@ -8,6 +8,8 @@ using HL7Processor.Web.Hubs;
 using HL7Processor.Infrastructure.Repositories;
 using HL7Processor.Core.Communication.Queue;
 using HL7Processor.Infrastructure.Auth;
+using HL7Processor.Application.UseCases;
+using HL7Processor.Infrastructure.UseCases;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -90,19 +92,32 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("RequireUserRole", policy => policy.RequireRole("User", "Admin"));
 });
 
-// Application Services
+// Infrastructure Repositories
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+
+// Application Use Cases (Interface -> Implementation mapping)
+builder.Services.AddScoped<IGetDashboardDataUseCase, GetDashboardDataUseCase>();
+builder.Services.AddScoped<IGetSystemHealthUseCase, GetSystemHealthUseCase>();
+builder.Services.AddScoped<IGetValidationDataUseCase, GetValidationDataUseCase>();
+builder.Services.AddScoped<IGetParserMetricsUseCase, GetParserMetricsUseCase>();
+builder.Services.AddScoped<IGetTransformationDataUseCase, GetTransformationDataUseCase>();
+builder.Services.AddScoped<IGetArchivedMessagesUseCase, GetArchivedMessagesUseCase>();
+builder.Services.AddScoped<IGetArchivedMessageCountUseCase, GetArchivedMessageCountUseCase>();
+builder.Services.AddScoped<ICreateTransformationRuleUseCase, CreateTransformationRuleUseCase>();
+builder.Services.AddScoped<IUpdateTransformationRuleUseCase, UpdateTransformationRuleUseCase>();
+builder.Services.AddScoped<IDeleteTransformationRuleUseCase, DeleteTransformationRuleUseCase>();
+builder.Services.AddScoped<IGetTransformationStatsUseCase, GetTransformationStatsUseCase>();
+
+// Web Layer Services 
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ISystemHealthService, SystemHealthService>();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
-builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
-
-// Stage 6b: Parser & Validation Services
 builder.Services.AddScoped<IValidationService, ValidationService>();
 builder.Services.AddScoped<IParserMetricsService, ParserMetricsService>();
-
-// Stage 6c: Transformation Services
 builder.Services.AddScoped<ITransformationService, TransformationService>();
+
+// Infrastructure Services
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddSingleton<IMessageQueue, InMemoryMessageQueue>();
 
 // Toast Notification Service
 builder.Services.AddScoped<IToastService, ToastService>();

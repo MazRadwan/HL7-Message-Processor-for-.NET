@@ -1,102 +1,148 @@
-using HL7Processor.Infrastructure;
-using HL7Processor.Infrastructure.Entities;
-using Microsoft.EntityFrameworkCore;
+using HL7Processor.Application.UseCases;
+using HL7Processor.Web.Models;
 using System.Diagnostics;
 using System.Text.Json;
+using HL7Processor.Application.DTOs;
+using System.Linq;
 
 namespace HL7Processor.Web.Services;
 
 public class TransformationService : ITransformationService
 {
-    private readonly IDbContextFactory<HL7DbContext> _contextFactory;
+    private readonly IGetTransformationDataUseCase _getTransformationDataUseCase;
+    private readonly ICreateTransformationRuleUseCase _createRuleUseCase;
+    private readonly IUpdateTransformationRuleUseCase _updateRuleUseCase;
+    private readonly IDeleteTransformationRuleUseCase _deleteRuleUseCase;
+    private readonly IGetTransformationStatsUseCase _getStatsUseCase;
     private readonly ILogger<TransformationService> _logger;
 
-    public TransformationService(IDbContextFactory<HL7DbContext> contextFactory, ILogger<TransformationService> logger)
+    public TransformationService(IGetTransformationDataUseCase getTransformationDataUseCase,
+        ICreateTransformationRuleUseCase createRuleUseCase,
+        IUpdateTransformationRuleUseCase updateRuleUseCase,
+        IDeleteTransformationRuleUseCase deleteRuleUseCase,
+        IGetTransformationStatsUseCase getStatsUseCase,
+        ILogger<TransformationService> logger)
     {
-        _contextFactory = contextFactory;
+        _getTransformationDataUseCase = getTransformationDataUseCase;
+        _createRuleUseCase = createRuleUseCase;
+        _updateRuleUseCase = updateRuleUseCase;
+        _deleteRuleUseCase = deleteRuleUseCase;
+        _getStatsUseCase = getStatsUseCase;
         _logger = logger;
     }
 
-    public async Task<List<TransformationRule>> GetTransformationRulesAsync()
+    public async Task<List<Models.TransformationRule>> GetTransformationRulesAsync()
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.TransformationRules
-            .OrderBy(r => r.Name)
-            .ToListAsync();
+        try
+        {
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var ruleDtos = await _getTransformationDataUseCase.GetTransformationRulesAsync();
+            
+            // Map Application DTOs to Web models
+            return ruleDtos.Select(dto => new Models.TransformationRule
+            {
+                Id = dto.Id,
+                Name = dto.RuleName,
+                SourceFormat = ExtractSourceFormat(dto.TransformationType),
+                TargetFormat = ExtractTargetFormat(dto.TransformationType),
+                RuleDefinition = dto.TransformationExpression ?? string.Empty,
+                IsActive = dto.IsActive,
+                CreatedAt = dto.CreatedAt,
+                ModifiedAt = dto.UpdatedAt ?? dto.CreatedAt
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting transformation rules");
+            return new List<Models.TransformationRule>();
+        }
     }
 
-    public async Task<TransformationRule?> GetTransformationRuleAsync(Guid id)
+    public async Task<Models.TransformationRule?> GetTransformationRuleAsync(Guid id)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.TransformationRules
-            .Include(r => r.TransformationHistories)
-            .FirstOrDefaultAsync(r => r.Id == id);
+        try
+        {
+            // Use Application layer Use Case instead of direct Infrastructure access
+            var ruleDto = await _getTransformationDataUseCase.GetTransformationRuleByIdAsync(id);
+            if (ruleDto == null) return null;
+            
+            // Map Application DTO to Web model
+            return new Models.TransformationRule
+            {
+                Id = ruleDto.Id,
+                Name = ruleDto.RuleName,
+                SourceFormat = ExtractSourceFormat(ruleDto.TransformationType),
+                TargetFormat = ExtractTargetFormat(ruleDto.TransformationType),
+                RuleDefinition = ruleDto.TransformationExpression ?? string.Empty,
+                IsActive = ruleDto.IsActive,
+                CreatedAt = ruleDto.CreatedAt,
+                ModifiedAt = ruleDto.UpdatedAt ?? ruleDto.CreatedAt
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting transformation rule {RuleId}", id);
+            return null;
+        }
     }
 
-    public async Task<TransformationRule> CreateTransformationRuleAsync(TransformationRule rule)
+    public async Task<Models.TransformationRule> CreateTransformationRuleAsync(Models.TransformationRule rule)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        rule.CreatedAt = DateTime.UtcNow;
-        rule.ModifiedAt = DateTime.UtcNow;
-        
-        context.TransformationRules.Add(rule);
-        await context.SaveChangesAsync();
-        
-        _logger.LogInformation("Created transformation rule: {RuleName}", rule.Name);
+        var dto = new TransformationRuleDto
+        {
+            RuleName = rule.Name,
+            SourcePath = rule.SourceFormat,
+            TargetPath = rule.TargetFormat,
+            TransformationType = rule.SourceFormat + "->" + rule.TargetFormat,
+            TransformationExpression = rule.RuleDefinition,
+            IsActive = rule.IsActive
+        };
+        var created = await _createRuleUseCase.ExecuteAsync(dto);
+        rule.Id = created.Id;
+        rule.CreatedAt = created.CreatedAt;
+        rule.ModifiedAt = created.UpdatedAt ?? created.CreatedAt;
         return rule;
     }
 
-    public async Task<TransformationRule> UpdateTransformationRuleAsync(TransformationRule rule)
+    public async Task<Models.TransformationRule> UpdateTransformationRuleAsync(Models.TransformationRule rule)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        var existing = await context.TransformationRules.FindAsync(rule.Id);
-        if (existing == null)
-            throw new ArgumentException($"Transformation rule with ID {rule.Id} not found");
-
-        existing.Name = rule.Name;
-        existing.Description = rule.Description;
-        existing.SourceFormat = rule.SourceFormat;
-        existing.TargetFormat = rule.TargetFormat;
-        existing.RuleDefinition = rule.RuleDefinition;
-        existing.IsActive = rule.IsActive;
-        existing.ModifiedAt = DateTime.UtcNow;
-        
-        await context.SaveChangesAsync();
-        
-        _logger.LogInformation("Updated transformation rule: {RuleName}", rule.Name);
-        return existing;
+        var dto = new TransformationRuleDto
+        {
+            Id = rule.Id,
+            RuleName = rule.Name,
+            SourcePath = rule.SourceFormat,
+            TargetPath = rule.TargetFormat,
+            TransformationType = rule.SourceFormat + "->" + rule.TargetFormat,
+            TransformationExpression = rule.RuleDefinition,
+            IsActive = rule.IsActive
+        };
+        var updated = await _updateRuleUseCase.ExecuteAsync(dto);
+        rule.ModifiedAt = updated.UpdatedAt ?? DateTime.UtcNow;
+        return rule;
     }
 
     public async Task<bool> DeleteTransformationRuleAsync(Guid id)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        var rule = await context.TransformationRules.FindAsync(id);
-        if (rule == null)
-            return false;
-
-        context.TransformationRules.Remove(rule);
-        await context.SaveChangesAsync();
-        
-        _logger.LogInformation("Deleted transformation rule: {RuleName}", rule.Name);
-        return true;
+        return await _deleteRuleUseCase.ExecuteAsync(id);
     }
 
     public async Task<string> ExecuteTransformationAsync(Guid ruleId, string inputData)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
         var stopwatch = Stopwatch.StartNew();
         
-        var rule = await context.TransformationRules.FindAsync(ruleId);
-        if (rule == null)
+        // Use Application layer Use Case to get transformation rule
+        var ruleDto = await _getTransformationDataUseCase.GetTransformationRuleByIdAsync(ruleId);
+        if (ruleDto == null)
             throw new ArgumentException($"Transformation rule with ID {ruleId} not found");
 
-        var history = new TransformationHistory
+        // Map to Web model for transformation logic
+        var rule = new Models.TransformationRule
         {
-            RuleId = ruleId,
-            CreatedAt = DateTime.UtcNow
+            Id = ruleDto.Id,
+            Name = ruleDto.RuleName,
+            SourceFormat = ExtractSourceFormat(ruleDto.TransformationType),
+            TargetFormat = ExtractTargetFormat(ruleDto.TransformationType),
+            RuleDefinition = ruleDto.TransformationExpression ?? string.Empty
         };
 
         try
@@ -104,13 +150,7 @@ public class TransformationService : ITransformationService
             var result = await ExecuteTransformationLogic(rule, inputData);
             stopwatch.Stop();
             
-            history.Success = true;
-            history.OutputData = result;
-            history.TransformationTimeMs = (int)stopwatch.ElapsedMilliseconds;
-            
-            context.TransformationHistories.Add(history);
-            await context.SaveChangesAsync();
-            
+            // TODO: Record transformation history via Use Case
             _logger.LogInformation("Executed transformation {RuleName} in {ElapsedMs}ms", 
                 rule.Name, stopwatch.ElapsedMilliseconds);
             
@@ -120,13 +160,7 @@ public class TransformationService : ITransformationService
         {
             stopwatch.Stop();
             
-            history.Success = false;
-            history.ErrorMessage = ex.Message;
-            history.TransformationTimeMs = (int)stopwatch.ElapsedMilliseconds;
-            
-            context.TransformationHistories.Add(history);
-            await context.SaveChangesAsync();
-            
+            // TODO: Record transformation failure via Use Case
             _logger.LogError(ex, "Transformation {RuleName} failed", rule.Name);
             throw;
         }
@@ -144,66 +178,45 @@ public class TransformationService : ITransformationService
         return await ExecuteTransformationLogic(tempRule, inputData);
     }
 
-    public async Task<List<TransformationHistory>> GetTransformationHistoryAsync(int limit = 100)
+    public async Task<List<Models.TransformationHistory>> GetTransformationHistoryAsync(int limit = 100)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        return await context.TransformationHistories
-            .Include(h => h.Rule)
-            .Include(h => h.SourceMessage)
-            .OrderByDescending(h => h.CreatedAt)
-            .Take(limit)
-            .ToListAsync();
-    }
-
-    public async Task<TransformationStats> GetTransformationStatsAsync(DateTime? fromDate = null)
-    {
-        using var context = await _contextFactory.CreateDbContextAsync();
-        
-        var startDate = fromDate ?? DateTime.UtcNow.AddDays(-30);
-        
-        var transformations = await context.TransformationHistories
-            .Include(h => h.Rule)
-            .Where(h => h.CreatedAt >= startDate)
-            .ToListAsync();
-
-        var stats = new TransformationStats
+        var historyDtos = await _getTransformationDataUseCase.GetTransformationHistoryAsync(limit);
+        return historyDtos.Select(dto => new Models.TransformationHistory
         {
-            TotalTransformations = transformations.Count,
-            SuccessfulTransformations = transformations.Count(t => t.Success),
-            FailedTransformations = transformations.Count(t => !t.Success),
-            AverageTransformationTimeMs = transformations.Any() ? 
-                transformations.Average(t => t.TransformationTimeMs) : 0
-        };
-
-        // Group by format combinations
-        stats.TransformationsByFormat = transformations
-            .GroupBy(t => $"{t.Rule.SourceFormat} → {t.Rule.TargetFormat}")
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        // Group by rule name
-        stats.TransformationsByRule = transformations
-            .GroupBy(t => t.Rule.Name)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        // Daily trends
-        stats.DailyTrends = transformations
-            .GroupBy(t => t.CreatedAt.Date)
-            .Select(g => new TransformationTrend
-            {
-                Date = g.Key,
-                TransformationCount = g.Count(),
-                AverageTimeMs = g.Average(t => t.TransformationTimeMs),
-                SuccessCount = g.Count(t => t.Success),
-                FailureCount = g.Count(t => !t.Success)
-            })
-            .OrderBy(t => t.Date)
-            .ToList();
-
-        return stats;
+            Id = dto.Id,
+            RuleId = dto.RuleId,
+            Success = dto.IsSuccessful,
+            OutputData = dto.TransformedData,
+            ErrorMessage = dto.ErrorMessage,
+            TransformationTimeMs = dto.ProcessingTimeMs,
+            CreatedAt = dto.CreatedAt,
+            Rule = new Models.TransformationRule { Id = dto.RuleId, Name = dto.RuleName }
+        }).ToList();
     }
 
-    private async Task<string> ExecuteTransformationLogic(TransformationRule rule, string inputData)
+    public async Task<Models.TransformationStats> GetTransformationStatsAsync(DateTime? fromDate = null)
+    {
+        var statsDto = await _getStatsUseCase.ExecuteAsync(fromDate);
+        return new Models.TransformationStats
+        {
+            TotalTransformations = statsDto.TotalTransformations,
+            SuccessfulTransformations = statsDto.SuccessfulTransformations,
+            FailedTransformations = statsDto.FailedTransformations,
+            AverageTransformationTimeMs = statsDto.AverageTransformationTimeMs,
+            TransformationsByFormat = statsDto.TransformationsByFormat,
+            TransformationsByRule = statsDto.TransformationsByRule,
+            DailyTrends = statsDto.DailyTrends.Select(t => new Models.TransformationTrend
+            {
+                Date = t.Date,
+                TransformationCount = t.TransformationCount,
+                AverageTimeMs = t.AverageTimeMs,
+                SuccessCount = t.SuccessCount,
+                FailureCount = t.FailureCount
+            }).ToList()
+        };
+    }
+
+    private async Task<string> ExecuteTransformationLogic(Models.TransformationRule rule, string inputData)
     {
         await Task.Delay(1); // Simulate async operation
         
@@ -295,5 +308,20 @@ public class TransformationService : ITransformationService
         // Simplified FHIR to HL7 conversion
         return "MSH|^~\\&|SYSTEM|FACILITY|DEST|DEST|20240101120000||ADT^A01|12345|P|2.5\r\n" +
                "PID|1||123456^^^MRN||DOE^JOHN^M||19800101|M";
+    }
+
+    // Helper methods for TransformationDto mapping
+    private string ExtractSourceFormat(string transformationType)
+    {
+        if (string.IsNullOrEmpty(transformationType)) return "HL7";
+        var parts = transformationType.Split("->", StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts[0].Trim() : "HL7";
+    }
+
+    private string ExtractTargetFormat(string transformationType)
+    {
+        if (string.IsNullOrEmpty(transformationType)) return "JSON";
+        var parts = transformationType.Split("->", StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 1 ? parts[1].Trim() : "JSON";
     }
 }

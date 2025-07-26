@@ -1,7 +1,6 @@
 @using HL7Processor.Web.Services
-@using HL7Processor.Infrastructure.Entities
+@using HL7Processor.Web.Models
 @using System.Text.Json
-@using ValidationResult = HL7Processor.Infrastructure.Entities.ValidationResult
 @inject IValidationService ValidationService
 @inject IJSRuntime JSRuntime
 
@@ -148,7 +147,7 @@ PID|1||123456^^^FACILITY^MR||DOE^JOHN^MIDDLE||19800101|M|||123 MAIN ST^^CITY^ST^
     private string MessageContent { get; set; } = string.Empty;
     private string ValidationLevel { get; set; } = "Strict";
     private bool IsValidating { get; set; } = false;
-    private HL7Processor.Infrastructure.Entities.ValidationResult? ValidationResult { get; set; }
+    private Models.ValidationResult? ValidationResult { get; set; }
     private List<ValidationIssue>? ValidationIssues { get; set; }
 
     private async Task ValidateMessage()
