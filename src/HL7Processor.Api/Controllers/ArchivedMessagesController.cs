@@ -1,4 +1,4 @@
-using HL7Processor.Core.Services;
+using HL7Processor.Application.UseCases;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,20 +9,17 @@ namespace HL7Processor.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public class ArchivedMessagesController : ControllerBase
 {
-    private readonly IArchivedMessageService _archivedMessageService;
+    private readonly IGetArchivedMessagesUseCase _getArchivedMessagesUseCase;
 
-    public ArchivedMessagesController(IArchivedMessageService archivedMessageService)
+    public ArchivedMessagesController(IGetArchivedMessagesUseCase getArchivedMessagesUseCase)
     {
-        _archivedMessageService = archivedMessageService;
+        _getArchivedMessagesUseCase = getArchivedMessagesUseCase;
     }
 
     [HttpGet]
     public async Task<IActionResult> List(int page = 1, int pageSize = 20)
     {
-        if (page <= 0) page = 1;
-        if (pageSize <= 0 || pageSize > 200) pageSize = 20;
-
-        var result = await _archivedMessageService.GetArchivedMessagesAsync(page, pageSize);
+        var result = await _getArchivedMessagesUseCase.ExecuteAsync(page, pageSize);
         return Ok(result);
     }
 } 

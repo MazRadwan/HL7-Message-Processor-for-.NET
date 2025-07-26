@@ -9,6 +9,7 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../HL7Processor.Application/HL7Processor.Application.csproj" />
     <ProjectReference Include="../HL7Processor.Infrastructure/HL7Processor.Infrastructure.csproj" />
     <ProjectReference Include="../HL7Processor.Core/HL7Processor.Core.csproj" />
   </ItemGroup>
