@@ -17,7 +17,7 @@ public class HL7DbContext : DbContext
     public DbSet<ValidationResult> ValidationResults => Set<ValidationResult>();
     public DbSet<ParserMetric> ParserMetrics => Set<ParserMetric>();
     
-    // Stage 6c: Transformation tables
+    
     public DbSet<TransformationRule> TransformationRules => Set<TransformationRule>();
     public DbSet<TransformationHistory> TransformationHistories => Set<TransformationHistory>();
 
@@ -38,7 +38,7 @@ public class HL7DbContext : DbContext
             .HasForeignKey(f => f.SegmentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Stage 6b: Validation Results relationship
+        // Validation Results relationship
         modelBuilder.Entity<ValidationResult>()
             .HasOne(v => v.Message)
             .WithMany()
